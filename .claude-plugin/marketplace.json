@@ -1,0 +1,18 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+  "name": "claudex-setup",
+  "description": "The claudex-setup plugin: portable slash commands, subagents and skills for Claude Code, with /optimise auditing a project's Claude Code, Claude Design or Codex setup.",
+  "owner": {
+    "name": "model-bender",
+    "url": "https://github.com/model-bender"
+  },
+  "plugins": [
+    {
+      "name": "claudex-setup",
+      "source": "./",
+      "version": "0.6.0",
+      "description": "Portable agentic-coding extensions: slash commands, subagents, and skills for Claude Code, with /optimise auditing a project's Claude Code, Claude Design, or Codex setup.",
+      "category": "workflow"
+    }
+  ]
+}

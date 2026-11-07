@@ -1,0 +1,16 @@
+[project]
+name = "claudex-setup"
+version = "0.3.0"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "requests>=2.33.1",
+    "youtube-transcript-api>=1.2.4",
+]
+
+[tool.uv]
+# copy, not hard-link: `claude plugin eval` refuses a plugin dir containing any
+# hard-linked file, and uv hard-links packages from its cache by default (2026-09-12)
+link-mode = "copy"

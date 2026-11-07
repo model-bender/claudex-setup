@@ -1,0 +1,33 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "claudex-setup",
+  "version": "0.6.0",
+  "description": "Portable agentic-coding extensions: slash commands, subagents, and skills for Claude Code, including /optimise to audit a project's Claude Code, Claude Design, or Codex setup against a lessons library. Hooks and the transcript→lessons pipeline live in the full repo (see README); this plugin is the lightweight, auto-updating path for the commands/agents/skills.",
+  "author": {
+    "name": "model-bender",
+    "url": "https://github.com/model-bender"
+  },
+  "homepage": "https://github.com/model-bender/claudex-setup",
+  "license": "MIT",
+  "keywords": ["claude-code", "codex", "agents", "config", "subagents", "skills"],
+  "commands": [
+    "./.claude/commands/extract-lessons.md",
+    "./.claude/commands/extract-social-lessons.md",
+    "./.claude/commands/discover.md",
+    "./.claude/commands/consolidate-lessons.md",
+    "./.claude/commands/test.md",
+    "./.claude/commands/review-pr.md",
+    "./.claude/commands/optimise.md",
+    "./.claude/commands/top-tips.md",
+    "./.claude/commands/codex-loop.md",
+    "./.claude/commands/claude-loop.md",
+    "./.claude/commands/quiz-me.md",
+    "./.claude/commands/fact-check.md",
+    "./.claude/commands/revise-claude-md.md",
+    "./.claude/commands/ralph-loop.md",
+    "./.claude/commands/ralph-help.md",
+    "./.claude/commands/cancel-ralph.md",
+    "./.claude/commands/changelog-claude.md",
+    "./.claude/commands/changelog-codex.md"
+  ]
+}

@@ -1,0 +1,49 @@
+.venv/
+.venv-linux/
+__pycache__/
+*.pyc
+.python-version
+
+# Machine-local Claude Code settings (personal permission grants / overrides).
+# This is the per-machine layer and must never be committed. See
+# settings.local.json.example for the format.
+settings.local.json
+
+# GSD install artifacts — installed via `npx get-shit-done-cc`, not vendored. See IMPLEMENT.md.
+get-shit-done/
+gsd-file-manifest.json
+
+# Auto-updater run log
+transcripts/.update_urls.log
+transcripts/.pipeline.log
+transcripts/.last_run
+
+# /optimise run scratchpad — a transient per-run holding file for freshly suggested
+# improvements, so a mid-run stop doesn't lose them. Deleted on clean completion; left
+# behind (and resumed next run) only when a run is interrupted. It's a local resume file,
+# never part of the committed backlog.
+projects/**/optimise.md
+
+# Secrets — never commit. The deny-list in settings.json also blocks reading these,
+# but ignoring them keeps an accidental `git add` from ever staging one.
+.env
+*.env
+.env.*
+*.pem
+*.key
+*.p12
+id_rsa
+*service-account*.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+
+# Plugin-eval run artifacts (aggregate-result.json + HTML report). Per-run
+# output, and the transcripts they embed can carry local paths, so they never
+# get committed or published.
+evals/results/
+
+# /extract-lessons backfill staging — mined lesson payloads awaiting write-up.
+# Transient work product, local-only; delete once consumed.
+.backfill-pending/

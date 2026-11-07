@@ -1,0 +1,252 @@
+---
+description: "Extract actionable agent-tooling lessons (Claude Code, Claude Design, Codex) from transcripts. Newer lessons supersede older contradicting ones."
+argument-hint: "[all | new | <path-or-glob>]"
+---
+
+# Extract Lessons
+
+Mine reusable agent-tooling lessons from locally saved practitioner transcripts and file each one into the `lessons/` library as its own markdown file, keeping `lessons/INDEX.md` and the processed-transcript ledger in sync. Newer lessons supersede older contradicting ones on the same topic.
+
+A "lesson" is a concrete, transferable improvement to how someone uses the **agent tooling this repo tracks, Claude Code, Claude Design, or Codex**: a command, flag, hook, skill pattern, workflow, config, design-surface technique, or gotcha that a reader could apply. Marketing claims, hype, product announcements without a usable technique, and generic AI-coding platitudes are NOT lessons.
+
+> **Scope covers all three tools, do not silently drop two of them.** This command was Claude-Code-only until 2026-07-17, and the omission was self-confirming: Claude Design and Codex transcripts were marked processed while yielding ~0 lessons, so `/optimise --design` and `--codex` kept concluding "no relevant lessons exist" when the truth was that nobody had ever looked. A 28k-word Claude Design course and a 1-hour Codex course both extracted **zero**. If a transcript teaches real Claude Design or Codex technique, that is **in scope** and must be filed under `design` or `codex`. A zero-lesson result for a technique-dense transcript is a red flag to re-read it, not a valid outcome.
+
+## Arguments
+
+`$ARGUMENTS`:
+- empty or `new` (default): process only transcripts not yet in `lessons/.processed.json`
+- `all`: reprocess every transcript (rare, only when the extraction criteria change). **The criteria changed on 2026-07-17** (scope widened to Claude Design + Codex), so every transcript ledgered before that date was mined against Claude-Code-only criteria and its `.processed.json` entry is **not** evidence that its design or Codex content was ever considered. Re-run with `all` over the design/Codex-heavy scopes to backfill. **They changed again on 2026-08-29** (one atomic claim per lesson), so a transcript ledgered before that date is not evidence its granular sub-tips were ever extracted: the 2026-08-31 consolidation split pass recovered only what compound lessons already carried as clauses, not what miners never wrote. Backfill with `all` over targeted scopes, starting with transcripts whose lessons needed splitting.
+- a path or glob (e.g. `transcripts/ray-amjad/`): process just that scope, minus already-processed (unless `all` is also passed)
+
+## Paths (all relative to the repo root: resolve the root first)
+
+- Transcripts: `transcripts/<creator>/<slug>_<YYYYMMDD>.txt`
+- Lessons library root: `lessons/`
+- Index: `lessons/INDEX.md`
+- Processed ledger: `lessons/.processed.json` (JSON `{"processed": ["transcripts/…/x.txt", …]}`)
+- One file per lesson: `lessons/<category>/<slug>.md`
+
+The 17 categories (create the dir on demand if a needed one is missing):
+`agents`, `automation`, `commands`, `configuration`, `context-management`, `gotchas`, `hooks`, `mcp`, `memory`, `model-selection`, `permissions`, `plugins`, `prompting`, `remote-access`, `settings`, `skills`, `workflows`.
+Pick the single best-fit category. If a lesson genuinely fits none, use `gotchas` as the fallback for pitfalls, else the closest topical dir. Do not invent new category names.
+
+### Category vs tool: two axes, do not conflate them
+
+**`category` is the TOPIC** (what the lesson is about) and lives in the folder tree. **`tool` is the PRODUCT** (which thing it applies to) and lives in frontmatter. They are independent: a Claude Design lesson about prompting is `category: prompting`, `tool: claude-design`. Never file a lesson by tool, there is deliberately no `design/` or `codex/` folder.
+
+`tool:` values are `claude-code`, `claude-design`, `codex`. Three rules:
+
+1. **Omitted means `claude-code`.** The pre-2026-07-17 corpus has no `tool:` field and is overwhelmingly Claude Code, so absent = `claude-code` and no backfill of old files is needed. **Set it explicitly on every NEW lesson**, including Claude Code ones.
+2. **It may be a list** when a lesson genuinely spans tools: `tool: [claude-code, codex]` (e.g. `portable-setup-via-open-standards`, AGENTS.md as an open standard is true of both). This is the case a tool-keyed folder tree could not express, and the corpus is full of it: 69% of Claude Design transcripts are also Claude-Code-heavy (the export→code handoff is inherently two-tool), as are 40% of Codex-heavy ones (running them side by side, migrating projects, routing between them).
+3. **Tool = where the reader TYPES, not what gets invoked.** A lesson on asking Codex for a second opinion from inside Claude Code is `tool: claude-code` (you type it in Claude Code; it calls Codex), not `codex`. Use the optional `about:` field when a lesson targets another tool from one tool.
+
+`/optimise` scopes each tracked area by `tool:`, not by folder, `--design` reads every lesson with `claude-design` in its `tool:`, wherever it sits. A lesson with no `tool:` is invisible to the `--design` and `--codex` audits, which is exactly how Claude Design went unmined before this field existed.
+
+## Procedure
+
+### 1. Locate the library and detect fresh-start vs. incremental
+
+1. Find the repo root: the nearest ancestor directory that contains a `lessons/` directory or a `transcripts/` directory. If both exist, use that root. Run all later paths from there.
+2. Determine state:
+   - **Fresh start** if `lessons/` is missing OR `lessons/INDEX.md` is missing OR `lessons/.processed.json` is missing. This happens on a standalone/plugin install with no library yet.
+   - **Incremental** otherwise.
+3. Handle the source list gracefully:
+   - If `transcripts/` is missing or contains no `*.txt` files, STOP and report: "No transcript source found at `transcripts/`, nothing to extract." Do not error out. This is a valid standalone/plugin state.
+
+### 2. Fresh-start layout (only if fresh start)
+
+Create the library skeleton before extracting:
+1. Create `lessons/` and each of the 17 category directories on demand (create a category dir only when you actually write a lesson into it, do not pre-create all 17 empty).
+2. Create `lessons/.processed.json` with `{"processed": []}`.
+3. Create `lessons/INDEX.md` with this exact top structure:
+
+```markdown
+# Lessons Index
+
+Active lessons learned from transcripts about improving Claude Code usage. Generated by `/extract-lessons`.
+
+**How to use this file:** read this index first to scan known lessons. Drill into individual files for detail. Lessons are filed under `lessons/<category>/`. Superseded lessons are not listed here, find them via `grep -lr "status: superseded" lessons/`.
+
+---
+
+## Active lessons
+
+## Last extraction run
+```
+
+(Optionally also write a `lessons/README.md` describing the format if none exists, but INDEX + ledger are the load-bearing files.)
+
+### 3. Build the work list
+
+> **The ledger covers ONE of two sources. Check the other before you trust an empty work list.**
+> Transcripts arrive from **two independent places**: the scheduled YouTube job (which is what
+> `.processed.json` tracks) and an optional course (served by its own MCP,
+> pulled by hand). A clean ledger is therefore **not** evidence the course is current, and the
+> failure is silent in the worst possible way, because step 3.4 reports "all transcripts already
+> processed" and that reads as "we are up to date". **This has already gone wrong twice**, on
+> 2026-08-16 (14 course videos missed) and again on 2026-08-22 (6 missed, caught only because the
+> owner asked directly rather than by any check). Recording it in a run footer did not prevent the
+> repeat, which is why it is now a required step here instead.
+
+1. Read `lessons/.processed.json` → set of already-processed transcript paths.
+2. Enumerate transcripts per the argument: default/`new` → every `transcripts/**/*.txt`; a path/glob → just that scope. Exclude non-transcript `.txt` files (e.g. `transcripts/urls.txt`, the URL seed list, anything not under a per-creator folder); do not mine or ledger them.
+3. **Reconcile the course source** (skip only when the argument is a path/glob that excludes `transcripts/<course>/`, and say so in the report when you skip). If the `mcp__<course-mcp>__*` tools are unavailable in this session, say that plainly in the report rather than treating the course as current.
+   - Call `mcp__<course-mcp>__list_videos` with **no `addedSince` filter** and `includeContext: false`. An `addedSince` query is not sufficient: it hides an older video that was never pulled, which is exactly the failure being guarded against.
+     - The catalog is too large to return inline, so it arrives as `<persisted-output>` with a `Full output saved to: <path>` line. Read the JSON from that path; the inline reply is only a preview.
+   - Diff the catalog against disk **by title**, not by filename slug. Local files carry the exact title on their first line (`# Title: …`), so `grep -rH "^# Title:" transcripts/<course>/` is the disk side. Slugs are normalised and several videos have been **retitled upstream** while their content sits on disk under the old name, so a slug diff produces false gaps; resolve any near-miss by the `# URL:` id.
+     - Two traps (found 2026-09-24). The catalog's `videoId` is a UUID, not the `/v/<id>` in a file's `# URL:` line; only `get_video` returns that id. And the catalog reuses one title for different videos in different classes, so a title match can hide a real gap (7 such groups, 2 hidden gaps that run). Confirm every match whose title appears more than once in the catalog with `get_video` and compare URL ids before calling that video present.
+   - `glossary.languageCount: 0` means the video has **no transcript track at all** and cannot be pulled. That is not a gap. Record it (see below) rather than re-discovering it every run.
+   - Files on disk with no catalog entry are **videos removed from the course** (the catalog shrank 372 → 360 between 2026-08-10 and 2026-08-22), not errors. Leave them; they are the only surviving copy.
+   - For each genuinely missing video, pull it with `mcp__<course-mcp>__get_video` (needs `classSlug` + exact title) and write it to `transcripts/<course>/<classSlug>/<NNN>-<slug>.txt`, continuing that class directory's number prefix. Match the existing header block exactly: `# Title:`, `# Creator: ray-amjad`, `# Class:`, `# Chapter:`, `# Duration:`, `# URL:`, `# Context:` (the `agentContext`), `# Fetched:`, then a blank line and the transcript. Add any `downloads` as a `# Downloads:` line. Newly pulled files join this run's work list.
+4. Work list = enumerated files MINUS already-processed (skip the subtraction when `all` was passed). If empty, STOP and report "All transcripts already processed (N in ledger); no new lessons", **and state explicitly whether the course reconciliation in 3.3 ran and what it found**, because an empty work list means nothing without it. Do not re-mine processed transcripts.
+
+### 4. Load the dedupe corpus
+
+Before mining, build the picture of what already exists so you don't produce duplicates:
+1. Read `lessons/INDEX.md` in full, the one-line hooks under each `###` category are your fast duplicate scan.
+2. Note existing slugs: `ls lessons/*/` gives every existing `<slug>.md`. Duplicate detection is by *topic/claim*, not just slug.
+
+### 5. Mine transcripts via subagents (transcripts are large: keep them out of main context)
+
+Never read transcripts in the main session; the mining always happens in `Explore` subagents:
+
+- **If the work list is ≤ ~10 transcripts:** spawn ONE `Explore` subagent with the whole list.
+- **If more than ~10:** fan out to parallel `Explore` subagents. Split the work list into N batches of roughly 8–15 transcripts each (aim for 4–10 batches; keep batches small enough to avoid OOM: do not launch dozens of subagents at once). Launch all batch subagents in a single message so they run concurrently.
+
+Run the miners on the cheap or fast tier and keep the judgement (fit, dedupe, supersession) in the main session at its own tier; state in the §11 report which tier the miners ran on. Named by role rather than by model id on purpose, since this command ships to consumers with different ladders. Left implicit, the split varies between runs, so a quality difference cannot be told from a routing difference.
+
+Give each miner subagent this instruction set:
+- Here is your batch: `<explicit list of absolute transcript paths>`.
+- Here is the current lesson corpus to dedupe against: `<the INDEX.md hooks + existing slug list>`.
+- For each transcript, extract only concrete, transferable Claude Code usage lessons:
+  - **In scope, Claude Code:** specific workflows, slash commands, hooks, settings, agent patterns, MCP usage, plugin recipes, prompt techniques, gotchas.
+  - **In scope, Claude Design** (`tool: claude-design`): canvas and draw-tool technique, Tweaks panel, anchoring generations to a design system or tokens, structure-then-copy prompting, rendering full UI state matrices, export and handoff into code, quota tactics, Open Design. Note the export→code handoff usually earns `tool: [claude-design, claude-code]`.
+  - **In scope, Codex** (`tool: codex`): `AGENTS.md` and `.codex/config.toml` practice, Codex CLI commands/approvals/sandboxing, splitting work between Codex and Claude Code, running them side by side. Side-by-side/routing/migration lessons usually earn `tool: [claude-code, codex]`. Calling Codex *from* Claude Code is `tool: claude-code` + `about: codex`, category `mcp`.
+  - **Set `tool:` on every lesson you return**, Claude Code ones included, and use the list form rather than forcing a single tool onto a genuinely cross-tool lesson.
+  - **Out of scope:** generic LLM tips, news/announcements without an action, opinions without evidence, marketing/hype. **Model comparisons** are out of scope as verdicts ("X beats Y"), but a comparison video that yields a concrete *routing* rule ("use Codex for X because Y") IS a lesson: file it under `codex` or `model-selection`.
+  - **Each lesson must be:** actionable (a thing the user can do or stop doing), specific (not "use Claude well"), and grounded (cite the transcript).
+  - **Check every mechanism claim before you return it.** If a candidate names a settings key, env var, CLI flag, hotkey or version number, confirm it against a live source (the installed binary, e.g. `claude --help` or `command grep -c -a -- <NAME> "$(readlink -f "$(which claude)")"`, or the live docs page; inside Claude Code a plain `grep` is a wrapper that skips binary files and prints nothing, which is not a count of 0) and record in the lesson body what you checked it against and on which version. A claim that does not check out is returned corrected or dropped, never in the transcript's wording. A help screen is not a capability probe: invoke the thing where invoking is cheap. This is not hypothetical: a lesson filed 2026-09-12 told readers to launch with `CLAUDE_PERMISSIONS_DENY='["Skill"]'`, a name with zero occurrences in the installed binary, where the mechanism that works is `--disallowed-tools`. Re-reading the transcript would have confirmed it, because the transcript is where it came from; only an external lookup refuses it.
+  - **State only what the source states.** Do not add a number, product, mechanism, example or measured effect the transcript does not contain, and do not merge two examples into one. If you infer something, say in the body that it is the lesson's inference. On 2026-09-24 the §7a verifiers found 15 of 42 lessons partly unsupported, nearly all for this reason.
+  - **One atomic claim per lesson: split compound workflows.** A transcript teaching a multi-part workflow usually contains smaller tips that stand alone (a setting, a hook, a keyboard habit). File each independently-actionable tip as its OWN candidate, and the overarching workflow as another only if it adds something beyond the sum of its parts. A tip that survives only as a clause inside a bigger lesson's body is invisible downstream: `/optimise` routes habits by title and TL;DR, so it never surfaces. This has already gone wrong: the notify-when-a-session-finishes Stop-hook tip was mined 2026-04-25 solely as a clause of `parallel-sessions-with-system-notifications` (headline: run 5+ parallel sessions), and the owner first met the tip in a video on 2026-08-29, never from this pipeline.
+- Return candidates as a single JSON object, do NOT write files:
+  ```json
+  {
+    "new_lessons": [
+      {"id": "slug-form", "title": "...", "tldr": "...", "why": "...", "how": "...",
+       "category": "workflows", "tool": "claude-design", "sources": ["transcripts/..."]}
+    ],
+    "supersedes": [
+      {"new_id": "slug-form", "old_id": "existing-slug", "reason": "..."}
+    ],
+    "processed": ["transcripts/path/to/transcript.txt"]
+  }
+  ```
+  `supersedes` names any existing corpus entry a candidate duplicates or contradicts. `processed` lists every transcript the miner actually read, even zero-lesson ones.
+
+Collect all candidates from all miners into one list.
+
+### 6. Dedupe and resolve
+
+For each candidate, in order:
+1. **Duplicate of an active lesson (same claim, same advice):** drop it. Do not write a file. A candidate matching only a *clause* of a compound active lesson (the tip sits in the body, not the title or TL;DR) is NOT a duplicate: write it as its own file and cross-link the compound lesson under `## Related`.
+2. **Contradicts / supersedes an active lesson (same topic, better or corrected advice):** write a NEW file (never edit the old one). The old file lives at `lessons/<old-category>/<old-id>.md`, use `Glob lessons/**/<old-id>.md` if the category is unknown. Mark the old file `status: superseded` and add `superseded_by: <new-id>`; the new file gets `supersedes: <old-id>`. Remove the old lesson's bullet from INDEX (INDEX lists active only).
+3. **Genuinely new:** write a new file.
+4. Merge near-identical candidates that came from different transcripts into ONE lesson whose `sources:` lists all contributing transcript paths.
+
+### 7. Write lesson files
+
+Each lesson is `lessons/<category>/<slug>.md`. Slug = kebab-case of the core claim (short, descriptive, unique). If a file with that slug already exists in the category and is NOT being superseded, append a numeric suffix (`<slug>-2.md`). Exact format:
+
+```markdown
+---
+id: <slug>
+created: <YYYY-MM-DD>            # today's date
+status: active
+supersedes: null                # or <old-id> when this replaces one
+category: <one of the 17>       # TOPIC, what it's about (mirrors the folder)
+tool: claude-code               # PRODUCT, claude-code | claude-design | codex
+                                #   list several when it genuinely spans: [claude-code, codex]
+                                #   = where the reader TYPES, not what gets invoked
+about: <tool>                   # OPTIONAL, the tool being driven, when different
+                                #   e.g. tool: claude-code / about: codex
+sources:
+  - transcripts/<creator>/<file>.txt
+  - transcripts/<creator>/<other>.txt   # list every contributing transcript
+---
+
+# <Imperative, specific lesson title>
+
+## TL;DR
+
+<One or two sentences: the takeaway a reader can act on.>
+
+## Why it matters
+
+<Why this is true / what breaks without it. Ground it in what the transcript showed.>
+
+## How to apply
+
+<Concrete steps, exact command/flag/setting names.>
+
+## Related
+
+[[other-lesson-slug]], [[another-slug]]   # optional; omit the section if none
+```
+
+Notes:
+- `supersedes:` is `null` unless this lesson replaces one.
+- Add `source_type: canonical` or `source_type: post` ONLY for non-transcript sources (docs/changelog/social); plain transcript lessons omit `source_type`.
+- Cross-link related lessons with `[[slug]]` wikilinks in an optional `## Related` section.
+
+### 7a. Verify the batch before it enters the corpus
+
+Per-lesson accuracy that looks fine in isolation produces a steady stream of errors across a large batch, and the orchestrator that collected the candidates is the worst judge of them. Verification has to differ from the first pass by **information source**, not just by model: re-reading the same transcript confirms a well-formed but fictitious claim, because the transcript is where it came from.
+
+Spawn a **FRESH subagent** (never a fork: a fork inherits the mining context and grades its own reasoning) and give it the paths of the lesson files just written plus the transcripts each one cites. Ask it to report, per lesson, whether the cited transcript actually supports the TL;DR and the How to apply, and to list any lesson whose claim it could not locate. Verify every lesson when the run wrote fewer than 10, otherwise a sample of at least 20% weighted toward the largest batches.
+
+Correct or drop what it flags **before** updating INDEX.md and the ledger, and state the verified and dropped counts in the §11 report.
+
+### 8. Update INDEX.md
+
+1. **INDEX is grouped by TOOL first, then category.** The folder tree is topical, so the index is where a tool's lessons become browsable as a set, this is the tool-scoped view, and it is why no `design/` or `codex/` folder is needed. Top-level `##` sections, in this order:
+   - `## Claude Design`, every lesson whose `tool:` includes `claude-design`
+   - `## Codex`, every lesson whose `tool:` includes `codex`
+   - `## Cross-tool`, lessons whose `tool:` lists more than one (append `, <tool-a> + <tool-b>` to the hook). List each here **only**, not again under its individual tools.
+   - `## Claude Code`, everything else (the bulk; `tool:` omitted or `claude-code`), sub-grouped by `### <Category>` as before.
+
+   Under the three tool sections, group by `### <Category>` too once a section has enough entries to warrant it; a short section can be a flat bullet list. Bullet format is identical everywhere, the path is the lesson's real topical folder, which is the point:
+   ```
+   - [<Lesson Title>](<category>/<slug>.md): <one-sentence hook, same as TL;DR essence>.
+   ```
+   So a Claude Design lesson living at `lessons/workflows/claude-design-draw-to-code.md` appears under `## Claude Design`, linking into `workflows/`. Nothing moves on disk.
+2. For any superseded lesson, delete its bullet.
+3. Append/refresh the `## Last extraction run` footer with a dated entry at the top of that section:
+   ```
+   <YYYY-MM-DD>, /extract-lessons: <N> new, <M> superseded, <K> transcripts processed (<short note on creators/sources and how many candidates were dropped as duplicates/low-signal>). <highlights, optional>.
+   ```
+   Keep prior run entries below it (newest first). Leave `## Last social run` and `## Last consolidation run` untouched.
+
+### 9. Update the ledger
+
+**Write the ledger as the lessons land, not at the end.** As soon as a miner batch's lesson files are on disk (§7), append that batch's transcript paths to `lessons/.processed.json` `processed` immediately, before moving to the next batch. The ledger is the only record that a transcript was mined, so an interrupted run otherwise leaves lessons on disk with no entry and the next run re-mines them into near-duplicates that the dedupe pass has to catch by reading. That matters here because runs are large, the command fans out 4-10 parallel miners, and ~6+ parallel subagents can OOM-crash the session mid-run.
+
+This step is then the final reconciliation: every transcript path from this run's work list is in the `processed` array (even ones that yielded zero lessons, they are "processed"), and the file is valid JSON. Sorted or append-only is fine; do not drop existing entries.
+
+### 10. Self-check (do all before reporting done)
+
+- [ ] Every new lesson file has valid YAML frontmatter with `id`, `created`, `status: active`, `supersedes`, `category`, **`tool`**, and a non-empty `sources` list pointing at real transcript paths.
+- [ ] **`tool:` is set explicitly on every new lesson** (never left to the absent-means-claude-code default), uses only `claude-code`/`claude-design`/`codex`, and uses the list form for genuinely cross-tool lessons rather than forcing one. No lesson was filed into a `design/` or `codex/` folder, those deliberately do not exist; tool is a field, category is the folder.
+- [ ] Every new lesson appears as a bullet under the correct tool section (`## Claude Design` / `## Codex` / `## Cross-tool` / `## Claude Code`) and `### Category` in INDEX.md; cross-tool lessons appear under `## Cross-tool` only; no superseded lesson still appears there.
+- [ ] Any supersession is bidirectional (old has `superseded_by`, new has `supersedes`).
+- [ ] No duplicate of an existing active lesson was written.
+- [ ] No independently-actionable sub-tip was left buried as a clause of a compound lesson: compound candidates were split into atomic claims (§5), and a clause-only match was written as its own lesson rather than dropped as a duplicate (§6.1).
+- [ ] `.processed.json` now contains every transcript from this run and is valid JSON.
+- [ ] The `## Last extraction run` footer has today's dated entry with accurate counts.
+- [ ] Category dirs used all exist; no invented category names.
+- [ ] **Every new lesson naming a settings key, env var, CLI flag, hotkey or version number states the live source it was checked against and the version it was checked on** (§5). A mechanism taken from a transcript in the transcript's own wording, unchecked, is the failure this guard exists for.
+- [ ] **The §7a verification ran, a FRESH subagent (not a fork) checked written lessons against the transcripts they cite, and its findings were resolved BEFORE INDEX.md and the ledger were touched.** The §11 report states the verified and dropped counts.
+- [ ] **The course source was reconciled (§3.3), or the report says why not.** A clean `.processed.json` is evidence about the YouTube job only. An "all transcripts already processed" result is not reportable unless the catalog diff actually ran, or the report states that the MCP was unavailable / the scope excluded the course. Any video found with `languageCount: 0` was recorded in `transcripts/no-transcript-available.md` rather than left to be rediscovered next run.
+
+### 11. Report
+
+Report concisely: N lessons written (by category), M superseded, K transcripts processed, how many candidates were dropped as duplicates/low-signal, and a few highlight titles. State plainly if the run was a fresh start or found no new transcripts.

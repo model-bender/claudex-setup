@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx prettier *)",
+      "Bash(uv run *)",
+      "Bash(git *)",
+      "Bash(docker compose *)",
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(cat *)",
+      "Bash(wc *)",
+      "Bash(psql:*)",
+      "Bash(where:*)",
+      "Bash(bun:*)",
+      "Bash(claude:*)",
+      "Bash(cd:*)",
+      "Bash(jq:*)",
+      "Bash(test:*)",
+      "Bash(python3:*)",
+      "Bash(ln:*)",
+      "Bash(chmod +x:*)",
+      "Bash(npx get-shit-done-cc@latest:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:developers.openai.com)",
+      "mcp__github__create_pull_request",
+      "mcp__github__merge_pull_request",
+      "mcp__github__update_pull_request_branch",
+      "mcp__github__create_branch",
+      "mcp__github__pull_request_read"
+    ],
+    "deny": [
+      "Read(backend/.env)",
+      "Edit(backend/.env)",
+      "Read(frontend/.env)",
+      "Edit(frontend/.env)",
+      "Read(firebase-service-account.json)",
+      "Edit(firebase-service-account.json)",
+      "Read(**/.env)",
+      "Edit(**/.env)",
+      "Read(**/.env.*)",
+      "Edit(**/.env.*)",
+      "Read(**/*.pem)",
+      "Edit(**/*.pem)",
+      "Read(**/*.key)",
+      "Edit(**/*.key)",
+      "Read(**/*.p12)",
+      "Edit(**/*.p12)",
+      "Read(**/id_rsa)",
+      "Edit(**/id_rsa)",
+      "Read(**/.ssh/**)",
+      "Edit(**/.ssh/**)",
+      "Read(**/.aws/**)",
+      "Edit(**/.aws/**)",
+      "Read(**/*service-account*.json)",
+      "Edit(**/*service-account*.json)",
+      "Bash(cat *.env*)",
+      "Bash(cat *.pem)",
+      "Bash(cat *.key)",
+      "Bash(cat *.p12)",
+      "Bash(cat *id_rsa*)",
+      "Bash(cat *service-account*.json)",
+      "Bash(cat *.ssh/*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --delete:*)",
+      "Bash(git push --mirror:*)",
+      "Bash(git push --prune:*)"
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/gsd-check-update.js"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/security_reminder_hook.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/block-destructive-push.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/gsd-context-monitor.js"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-format.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-format.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '{\"terminalSequence\":\"\\\\u0007\"}'",
+            "async": true
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/scripts/ralph-stop-hook.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '{\"terminalSequence\":\"\\\\u0007\"}'",
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node .claude/hooks/gsd-statusline.js"
+  },
+  "env": {
+    "CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "100"
+  }
+}
