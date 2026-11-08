@@ -100,7 +100,7 @@ fetcher knows it's already done. Then run `/extract-lessons`.
 | `/weekly-update` | run the whole weekly pass (fetch, mine and consolidate lessons, both changelogs, every project audit, top tips) and answer every decision on one sheet |
 | `/review-pr` | multi-agent review of a pull request |
 | `/claude-loop` | have a fresh Claude session review the repo (or one branch), fix what it finds, and loop until each area comes back clean twice |
-| `/codex-loop` | the same loop with Codex as the reviewer |
+| `/codex-loop` | the same loop on Codex: its bigger model reviews and its smaller model writes the fixes |
 | `/test [suite]` | run the project's tests / lint / build |
 | `/pr`, `/ticket` | GitHub PR + Jira ticket flow [†](#pr-ticket-note) |
 | `/fact-check` | verify claims in content against real sources |

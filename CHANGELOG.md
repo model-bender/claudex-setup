@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+- **`/codex-loop` reviews on Codex's bigger model and has its smaller model write the fixes.** The review used whatever `review_model` the Codex config held, and every fix was written by the Claude session running the loop, so a Codex loop spent Anthropic usage on its heaviest step. Codex's newest listed Astra model now reviews and its newest listed Sol model writes each fix and its regression test (`--reviewer` and `--builder` override them), both named on every call so a config change cannot move a running loop. The Claude session still triages every finding, proves each regression test fails without its fix, runs the project's checks and commits. If the builder fails twice on one fix, the session writes that fix itself; when fixes keep breaking earlier fixes, the escalation goes to the reviewer model, as in `/claude-loop`.
+- **`/codex-loop` pauses at a usage cap instead of running into Codex's limit.** It used to stop only when a review hit the hard limit, losing that review. After every Codex run it now reads the account's five-hour and weekly usage from Codex's session logs, along with the model that actually served the run, and pauses between rounds once any window reaches `--usage-cap` (default 0.8), the same rule `/claude-loop` follows.
+
+### Fixed
+- **Both loops say to run `python` on native Windows.** Their review parsing (and now `/codex-loop`'s usage reader) called `python3`, which on Windows is usually the Microsoft Store stub: it is on PATH, so a check that it exists passes, but running it only prints "Python was not found". Followed literally, every `/claude-loop` round there read as a failed review.
+- **Both loops prove an escalated fix the way they prove their own.** When fixes kept breaking earlier fixes, the loop handed the next one to the reviewer model and committed it after the checks passed, without confirming that its regression test fails without the fix, and without checking that the tree was clean first. Both loops now do both. Starting a new run after a finished one also no longer sweeps earlier `run-*/` archive folders into the new archive.
+
 ## [0.6.0] - 2026-11-07
 
 ### Security

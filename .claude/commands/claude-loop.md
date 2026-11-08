@@ -17,10 +17,12 @@ collected as you go and asked once, in the §7 report.
 at `~/.claude/commands/claude-loop.md`) and `STATE.md` before continuing.
 Compaction keeps only the start of a long command.
 
-This is `/codex-loop` with the reviewer swapped for a headless `claude -p`
-session. It costs Anthropic usage instead of Codex usage. What it gives up is
-the differently-trained reviewer, so every rule below about reviewer
-independence exists to win back as much of that as possible.
+This is `/codex-loop` on Anthropic usage. There, Codex's bigger model reviews
+and its smaller model writes the fixes; here a headless `claude -p` session
+reviews and this session writes the fixes itself. What it gives up is the
+differently-trained reviewer, so every rule below about reviewer independence
+exists to win back as much of that as possible. Keep the two in step: a fix to
+the loop's logic belongs in both.
 
 ## Scope
 
@@ -54,9 +56,19 @@ one target, it closes on the first round that finds nothing at P2 or above
 ran 41 rounds without two clean in a row, the last of them a long tail of
 P3s.
 
-Fixes run on the session's model; this file pins none. The loop's gates (an
-independent reviewer, a regression test per fix, two clean rounds to stop) do
-the converging. Triage is still the hard part: a weaker model tends to apply
+## Roles
+
+- **Reviewer: the bigger model** (`--reviewer MODEL`, default Fable; Opus
+  when this session itself runs on Fable, see below), in its own headless
+  session. It finds defects and changes nothing.
+- **Builder and driver: this session.** It triages every finding (§2), writes
+  each fix and its regression test (§3), verifies (§4), commits (§5) and keeps
+  the state file. It runs on the session's model (Opus by default); this file
+  pins none.
+
+The loop's gates (an independent reviewer, a regression test per fix, two
+clean rounds to stop) do the converging. Triage is still the hard part: a
+weaker model tends to apply
 findings literally, which is the exact failure §2 exists to prevent, so judge a
 cheaper session by how many rounds it takes to reach two clean reviews.
 
@@ -114,8 +126,10 @@ cheaper session by how many rounds it takes to reach two clean reviews.
    cannot overwrite each other's reviews. If `STATE.md` exists with
    `status: running` or `paused`, RESUME from it rather than restarting. If
    its status is `done` or `stopped`, start a new run in the same file: move
-   the finished run's round files (`review-*`, `*.snap`, `fix-*`) into
-   `run-<started>/`, keep Rejected, Flagged and Needs owner, clear Rounds and
+   the finished run's round files (everything but `STATE.md`,
+   `review-prompt.md` and earlier `run-*/` folders) into `run-<started>/`
+   (`run-<started>-2/` and so on if that exists), keep Rejected, Flagged and
+   Needs owner, clear Rounds and
    Self-inflicted and untick every area (they belong to the finished run),
    reset `round`, `target`, `consecutive_clean`, `self_inflicted_streak`,
    `started` and `head:` (to `started`), and set `status: running`.
@@ -233,6 +247,10 @@ cmp $S/pre-<n>.snap $S/post-<n>.snap
 python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); r=[x for x in (d if isinstance(d,list) else [d]) if x.get("type")=="result"][-1]; open(sys.argv[2],"w").write(r.get("result") or ""); print("served by:", ", ".join(r.get("modelUsage") or {}) or "unknown"); w=([x for x in (d if isinstance(d,list) else [d]) if x.get("type")=="rate_limit_event"] or [{}])[-1].get("rate_limit_info",{}).get("unifiedWindows",{}); print("usage:", ", ".join(k+" "+format(v.get("utilization",0),".2f") for k,v in w.items()) or "not reported")' $S/review-<n>.json $S/review-<n>.log
 ```
 
+- **On native Windows, run `python` where this file says `python3`.** There
+  `python3` is usually the Microsoft Store stub: it is on PATH but only
+  prints "Python was not found", so the parse line writes no `.log` and every
+  round reads as a failed review.
 - **The prompt goes in on stdin, never as a trailing argument.**
   `--disallowedTools` takes a variable number of values and swallows a prompt
   that follows it, and `claude -p` then exits with "Input must be provided".
@@ -446,6 +464,7 @@ attempt the fix in its own session:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)" && S=.planning/claude-loop
+test -z "$(git status --porcelain)" || { echo "tree not clean, not escalating"; exit 1; }
 git rev-parse HEAD > $S/pre-fix-<n>.head
 <env assignments from the state file> claude -p --model <reviewer> --effort <effort> --no-session-persistence \
   --permission-mode acceptEdits --allowedTools "Bash(<test command> *)" \
@@ -468,8 +487,15 @@ git rev-parse HEAD | cmp - $S/pre-fix-<n>.head
   output hygiene as §1.
 - **If HEAD moved, stop and report.** Otherwise inspect everything it changed
   with `git status --porcelain -uall` and `git diff HEAD`.
+- **Prove each regression test fails without its fix.** Set the non-test
+  changes aside (`git diff HEAD -- <source paths> > $S/fix-<n>.patch`, then
+  `git checkout HEAD -- <source paths>`, moving any new source file out of the
+  tree), run the test and watch it fail for the reason the finding names,
+  restore the fix with `git apply` (and move any new source file back), and
+  watch it pass. Where a test lives in the same file as the code it tests,
+  set aside only the fix's hunks, not the test.
 - **The escalation failed** if it exits non-zero, leaves an empty log, changes
-  nothing, or its changes fail §4 or your triage. Discard its changes (the
+  nothing, or its changes fail that proof, §4 or your triage. Discard its changes (the
   tree was clean before it ran), retry once (falling back per §1 on a usage
   limit), otherwise stop and report. A failed run does not use up the area's
   one escalation.
