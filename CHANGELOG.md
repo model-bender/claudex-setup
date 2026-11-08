@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **`/codex-loop` takes `--effort` and `--builder-effort`.** Both runs used whatever `model_reasoning_effort` the Codex config held, so a config change moved a running loop, and the builder could not be run lighter than the reviewer. `--effort` sets the reviewer and the escalation, `--builder-effort` the builder, both default `xhigh`, and both are passed on every call. The loop checks each level against the model's catalogue before round 1, refuses `ultra` (it hands work to helper agents) and a low-effort reviewer, and records the effort each run actually used, read from Codex's session logs.
+
 ### Changed
 - **`/codex-loop` reviews on Codex's bigger model and has its smaller model write the fixes.** The review used whatever `review_model` the Codex config held, and every fix was written by the Claude session running the loop, so a Codex loop spent Anthropic usage on its heaviest step. Codex's newest listed Astra model now reviews and its newest listed Sol model writes each fix and its regression test (`--reviewer` and `--builder` override them), both named on every call so a config change cannot move a running loop. The Claude session still triages every finding, proves each regression test fails without its fix, runs the project's checks and commits. If the builder fails twice on one fix, the session writes that fix itself; when fixes keep breaking earlier fixes, the escalation goes to the reviewer model, as in `/claude-loop`.
 - **`/codex-loop` pauses at a usage cap instead of running into Codex's limit.** It used to stop only when a review hit the hard limit, losing that review. After every Codex run it now reads the account's five-hour and weekly usage from Codex's session logs, along with the model that actually served the run, and pauses between rounds once any window reaches `--usage-cap` (default 0.8), the same rule `/claude-loop` follows.

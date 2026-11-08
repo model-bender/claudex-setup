@@ -1,6 +1,6 @@
 ---
 description: Have Codex's bigger model review the whole repo, area by area (or one branch's diff with --base), have its smaller model write a fix and regression test for every real finding, and loop until each area comes back clean twice in a row. Runs autonomously.
-argument-hint: "[--base REF] [--scope PATH...] [--reviewer MODEL] [--builder MODEL] [--max-rounds N] [--area-rounds N] [--usage-cap FRACTION]"
+argument-hint: "[--base REF] [--scope PATH...] [--reviewer MODEL] [--builder MODEL] [--effort LEVEL] [--builder-effort LEVEL] [--max-rounds N] [--area-rounds N] [--usage-cap FRACTION]"
 ---
 
 # /codex-loop: review, fix, repeat until clean
@@ -71,9 +71,9 @@ P3s.
   and here it is a third model's reading of the finding.
 
 §0 resolves both defaults from Codex's model catalogue and records them in the
-state file, and every Codex call names its model. The config's `model` and
-`review_model` are the owner's interactive defaults, so changing them must not
-move a running loop. The loop's gates (an external reviewer, a regression test
+state file, and every Codex call names its model and effort. The config's
+`model`, `review_model` and `model_reasoning_effort` are the owner's
+interactive defaults, so changing them must not move a running loop. The loop's gates (an external reviewer, a regression test
 per fix, two clean rounds to stop) do the converging, which is why the smaller
 model is enough to build. Judge a builder by how many rounds it takes to reach
 two clean reviews, and how many of its fixes the next review finds fault with.
@@ -84,7 +84,15 @@ two clean reviews, and how many of its fixes the next review finds fault with.
   every mode uses one prompt and one output block.
 - **It reads the `review_model` config key, not `model`, and has no `-m`
   flag**, so §1 passes `-c 'review_model="<reviewer>"'`. There is no
-  review-specific effort key; reviews inherit `model_reasoning_effort`.
+  review-specific effort key either, so §1 sets `model_reasoning_effort` for
+  the review run.
+- **Effort:** `--effort LEVEL` for the reviewer and the §6a escalation, and
+  `--builder-effort LEVEL` for the builder, both default `xhigh`. Lower the
+  builder to `high` to save usage when the fixes are small. Never `low` or
+  `minimal` for the reviewer: at low effort it reads less and answers from
+  pattern, and it fails by returning a confident clean round. Never `ultra`
+  for either: it hands work to helper agents, so the run is no longer the
+  named model's own. §0 checks each level is one the model supports.
 - **Fresh every round.** Each review is a new Codex thread with no memory of
   earlier rounds. Never give it the state file, prior findings or your
   rejection reasons; checking for re-raised ground is your job (§2).
@@ -140,8 +148,8 @@ two clean reviews, and how many of its fixes the next review finds fault with.
 status: running | paused (usage limit, resets <time>) | done | stopped (<reason>)
 mode: repo | diff
 base: <sha> (main)             <- diff mode only
-reviewer: gpt-6-astra
-builder: gpt-6.1-sol
+reviewer: gpt-6-astra (effort xhigh)
+builder: gpt-6.1-sol (effort xhigh)
 started: <HEAD sha at round 1>
 round: <n>
 target: <area name | closing | diff>
@@ -242,13 +250,20 @@ With no findings, the block is the single line `=== FINDINGS: 0 ===`.
    they are the reviewer and builder unless `--reviewer` / `--builder` was
    passed. If it prints `none listed` for one, use the config's
    `review_model` (or `model` when that is unset) for the reviewer and
-   `model` for the builder, and say so in the state file. Record both names;
-   a resumed run uses the recorded names, so a catalogue refresh cannot switch
-   models mid-run. Run this step on any invocation where the helper file or
-   either name is missing, which includes resuming a run that an older
-   version of this command started. §1 and §3 use the helper
-   for what the Codex CLI's output does not carry: which model actually served
-   a run, and the account's usage windows. It reads both from the session logs
+   `model` for the builder, and say so in the state file. Then run
+   `efforts <reviewer>` and `efforts <builder>`: each prints the levels the
+   catalogue lists for that model. If `--effort` or `--builder-effort` is not
+   among them (or is `ultra`, or `low` / `minimal` for the reviewer), stop
+   before round 1 and say why; `not listed` means the catalogue could not
+   confirm it, so go ahead and let §1's served-by line confirm it instead.
+   Record both names with their efforts; a resumed run uses the recorded
+   values, so a catalogue refresh cannot switch models mid-run. Write the
+   helper afresh on every invocation, since a copy left by an older version of
+   this command may lack a subcommand, and resolve again whenever the state
+   file is missing either model or either effort. §1
+   and §3 use the helper for what the Codex CLI's output does not carry: which
+   model actually served a run and at what effort, and the account's usage
+   windows. It reads both from the session logs
    Codex writes under `${CODEX_HOME:-~/.codex}/sessions`. On native Windows,
    run `python` wherever this file says `python3`: there `python3` is
    usually the Microsoft Store stub, which is on PATH but only prints "Python
@@ -258,9 +273,10 @@ With no findings, the block is the single line `=== FINDINGS: 0 ===`.
 """Facts about Codex runs that the loop cannot get from the CLI's output.
 
 models: print the newest listed Astra and Sol models in Codex's catalogue.
+efforts <model>: print the reasoning efforts the catalogue lists for that model.
 review|exec <stamp>: for Codex runs of that kind started in this directory since
-<stamp> was last modified, print the models that served them and the account's
-usage windows from the newest rate-limit event.
+<stamp> was last modified, print the models that served them, with the effort
+each ran at, and the account's usage windows from the newest rate-limit event.
 """
 import datetime
 import glob
@@ -271,15 +287,21 @@ import sys
 
 home = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
 
-if sys.argv[1] == "models":
+if sys.argv[1] in ("models", "efforts"):
     try:
         with open(os.path.join(home, "models_cache.json"), encoding="utf-8") as fh:
             catalogue = json.load(fh)
     except (OSError, ValueError):
         catalogue = {}
     entries = catalogue.get("models", []) if isinstance(catalogue, dict) else []
-    listed = [m.get("slug", "") for m in entries
-              if isinstance(m, dict) and m.get("visibility") == "list"]
+    entries = [m for m in entries if isinstance(m, dict)]
+    if sys.argv[1] == "efforts":
+        levels = [level.get("effort") for m in entries if m.get("slug") == sys.argv[2]
+                  for level in m.get("supported_reasoning_levels") or []
+                  if isinstance(level, dict) and level.get("effort")]
+        print(f"{sys.argv[2]}:", " ".join(levels) or "not listed")
+        sys.exit(0)
+    listed = [m.get("slug", "") for m in entries if m.get("visibility") == "list"]
     for role, family in (("reviewer", "astra"), ("builder", "sol")):
         found = [(tuple(int(p) for p in m.group(1).split(".")), slug)
                  for slug in listed
@@ -316,7 +338,8 @@ def read(path):
                     return None
                 matched = True
             elif event.get("type") == "turn_context" and payload.get("model"):
-                models.add(payload["model"])
+                effort = payload.get("effort")
+                models.add(payload["model"] + (f" ({effort})" if effort else ""))
             elif payload.get("type") == "token_count" and payload.get("rate_limits"):
                 limits = (event.get("timestamp") or "", payload["rate_limits"])
     return (models, limits) if matched else None
@@ -360,7 +383,7 @@ the reviewer's writes. In repo mode, drop `<base>` from both snapshot lines.
 cd "$(git rev-parse --show-toplevel)" && S=.planning/codex-loop
 test -z "$(git status --porcelain)" || { echo "tree not clean, not reviewing"; exit 1; }
 { git rev-parse HEAD <base>; git status --porcelain -uall; } > $S/pre-<n>.snap
-codex review -c 'review_model="<reviewer>"' -c 'default_permissions="no-secrets-read-only"' -c approval_policy=never - < $S/review-<n>.prompt.md > $S/review-<n>.log 2>&1
+codex review -c 'review_model="<reviewer>"' -c 'model_reasoning_effort="<effort>"' -c 'default_permissions="no-secrets-read-only"' -c approval_policy=never - < $S/review-<n>.prompt.md > $S/review-<n>.log 2>&1
 echo "codex exit: $?"
 { git rev-parse HEAD <base>; git status --porcelain -uall; } > $S/post-<n>.snap
 cmp $S/pre-<n>.snap $S/post-<n>.snap
@@ -384,10 +407,12 @@ python3 -I $S/codex_run_info.py review $S/pre-<n>.snap
 - **If `cmp` reports a difference, stop.** The reviewer changed the repo.
   Report what changed and do not fix, revert or commit anything on top of it.
 - **Record who reviewed, and the usage.** The helper's `served by:` line names
-  the models that served the review, and its `usage:` line gives the
+  the models that served the review, each with the effort it ran at (for
+  example `gpt-6-astra (xhigh)`), and its `usage:` line gives the
   account's windows (`five_hour`, `seven_day`, 0 to 1, with reset times). Put
   both on the round's Rounds line; §6's budget check reads the usage. If the
-  review was not served by `<reviewer>`, say so in the §7 report. A finished
+  review was not served by `<reviewer>` at `<effort>`, say so in the §7
+  report. A finished
   review with `served by: unknown` means Codex changed where or how it logs:
   note it, and run on `--max-rounds` alone until a usage line comes back.
 - **Run it in the background with the Bash tool's `timeout` at its
@@ -494,7 +519,7 @@ The builder writes the code; you decide what it writes and prove it works.
 cd "$(git rev-parse --show-toplevel)" && S=.planning/codex-loop
 test -z "$(git status --porcelain)" || { echo "tree not clean, not building"; exit 1; }
 git rev-parse HEAD > $S/pre-fix-<n>-<k>.head
-<env assignments from the state file> codex exec -m <builder> \
+<env assignments from the state file> codex exec -m <builder> -c 'model_reasoning_effort="<builder effort>"' \
   < $S/fix-prompt-<n>-<k>.md > $S/fix-<n>-<k>.log 2>&1
 echo "codex exit: $?"
 git rev-parse HEAD | cmp - $S/pre-fix-<n>-<k>.head
@@ -522,8 +547,8 @@ With no prompt argument, `codex exec` reads the prompt from stdin.)
   gitignored files".
 - **If HEAD moved, stop and report.** Otherwise read `git status --porcelain
   -uall` and `git diff HEAD`: everything it changed must belong to this fix.
-  Read the helper's lines as in §1: note a model other than `<builder>` on the
-  Rounds line, and keep the usage for §6's budget check.
+  Read the helper's lines as in §1: note a model or effort other than
+  `<builder>` at `<builder effort>` on the Rounds line, and keep the usage for §6's budget check.
 - **Prove the test fails without the fix.** Set the non-test changes aside
   (`git diff HEAD -- <source paths> > $S/fix-<n>-<k>.patch`, then
   `git checkout HEAD -- <source paths>`, moving any new source file out of the
@@ -654,7 +679,7 @@ its own run:
 cd "$(git rev-parse --show-toplevel)" && S=.planning/codex-loop
 test -z "$(git status --porcelain)" || { echo "tree not clean, not escalating"; exit 1; }
 git rev-parse HEAD > $S/pre-escalate-<n>.head
-<env assignments from the state file> codex exec -m <reviewer> \
+<env assignments from the state file> codex exec -m <reviewer> -c 'model_reasoning_effort="<effort>"' \
   < $S/escalate-prompt-<n>.md > $S/escalate-<n>.log 2>&1
 echo "codex exit: $?"
 git rev-parse HEAD | cmp - $S/pre-escalate-<n>.head
@@ -706,7 +731,8 @@ One summary at the end, not per round, after `status:` is set:
 
 - How it ended: `done`, `paused` with the reset time, or `stopped` and why.
 - Mode and scope; in repo mode, every area with its rounds to done.
-- Reviewer and builder models, any run another model served, every fix the
+- Reviewer and builder models and efforts, any run another model or effort
+  served, every fix the
   driver wrote after the builder failed twice, and the usage at the stop.
 - Findings per round, and the trend.
 - What was fixed, grouped by area, with commit SHAs, own finds marked.
