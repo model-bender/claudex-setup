@@ -1,6 +1,6 @@
 ---
 description: Use a fresh headless Claude session (Fable by default) as an independent reviewer of the whole repo, area by area (or of one branch's diff with --base), fix every real finding with regression tests, and loop until each area comes back clean twice in a row. The /codex-loop pattern on Anthropic usage. Runs autonomously.
-argument-hint: "[--base REF] [--scope PATH...] [--reviewer MODEL] [--effort LEVEL] [--max-rounds N] [--area-rounds N] [--usage-cap FRACTION]"
+argument-hint: "[--base REF] [--scope PATH...] [--reviewer MODEL] [--effort LEVEL] [--builder MODEL] [--builder-effort LEVEL] [--max-rounds N] [--area-rounds N] [--usage-cap FRACTION]"
 ---
 
 # /claude-loop: review, fix, repeat until clean
@@ -19,7 +19,8 @@ Compaction keeps only the start of a long command.
 
 This is `/codex-loop` on Anthropic usage. There, Codex's bigger model reviews
 and its smaller model writes the fixes; here a headless `claude -p` session
-reviews and this session writes the fixes itself. What it gives up is the
+reviews, and this session writes the fixes or, with `--builder`, hands each
+to a separate `claude -p` run on another model. What it gives up is the
 differently-trained reviewer, so every rule below about reviewer independence
 exists to win back as much of that as possible. Keep the two in step: a fix to
 the loop's logic belongs in both.
@@ -45,7 +46,7 @@ the loop's logic belongs in both.
 **It runs on a budget and pauses at a healthy point.** A repo sweep costs at
 least two reviews per area, so a whole repo is several invocations, not one.
 One invocation runs at most `--max-rounds N` rounds (default 10), and pauses
-early once any usage window the reviewer reports passes `--usage-cap` (default
+early once any usage window a run reports passes `--usage-cap` (default
 0.8, see §1). The check runs only between rounds, after the round's fixes are
 committed and its bookkeeping written, so a pause never leaves work half done.
 Invoking the command again resumes from the state file with a fresh budget.
@@ -59,25 +60,36 @@ P3s.
 ## Roles
 
 - **Reviewer: the bigger model** (`--reviewer MODEL`, default Fable; Opus
-  when this session itself runs on Fable, see below), in its own headless
-  session. It finds defects and changes nothing.
-- **Builder and driver: this session.** It triages every finding (§2), writes
-  each fix and its regression test (§3), verifies (§4), commits (§5) and keeps
-  the state file. It runs on the session's model (Opus by default); this file
-  pins none.
+  when the model that writes the fixes is Fable, see below), in its own
+  headless session. It finds defects and changes nothing.
+- **Builder: this session, unless `--builder MODEL` is passed.** Then a
+  separate headless `claude -p` run on that model writes each fix and its
+  regression test (§3), at `--builder-effort LEVEL` (default `high`), and
+  never stages or commits. A command cannot change the model or effort of the
+  session running it, so this is the only way to build on a different model.
+  It saves this session's context and usage for triage; the cost is that each
+  fix starts cold and re-reads the code.
+- **Driver: this session.** It triages every finding (§2), proves each fix
+  (§3), verifies (§4), commits (§5) and keeps the state file. It runs on the
+  session's model (Opus by default); this file pins none.
 
-The loop's gates (an independent reviewer, a regression test per fix, two
-clean rounds to stop) do the converging. Triage is still the hard part: a
-weaker model tends to apply
+If `--builder` names the reviewer's model, the reviewer is grading its own
+model's fixes: say so in the §7 report. Record `reviewer:` and `builder:`
+(`session`, or the model with its effort) in the state file before round 1; a
+resumed run uses the recorded values, whatever flags it was invoked with. The
+loop's gates (an independent
+reviewer, a regression test per fix, two clean rounds to stop) do the
+converging. Triage is still the hard part: a weaker model tends to apply
 findings literally, which is the exact failure §2 exists to prevent, so judge a
 cheaper session by how many rounds it takes to reach two clean reviews.
 
 ## The reviewer
 
-- **Model:** `--reviewer MODEL`, default `fable`. If this session is itself
-  running on the reviewer's model and `--reviewer` was not passed, use the other
-  of `fable` / `opus`: a different model from the fixer is the closest this loop
-  gets to a second opinion. Record the choice in the state file.
+- **Model:** `--reviewer MODEL`, default `fable`. If the model that writes the
+  fixes (the builder, or this session when there is none) is the reviewer's
+  model and `--reviewer` was not passed, use the other of `fable` / `opus`: a
+  different model from the fixer is the closest this loop gets to a second
+  opinion. Record the choice in the state file.
 - **Effort:** `--effort LEVEL`, default `high`. Never `low`: at low effort the
   reviewer reads less and answers from pattern, and it fails by returning a
   confident clean round.
@@ -132,7 +144,9 @@ cheaper session by how many rounds it takes to reach two clean reviews.
    Needs owner, clear Rounds and
    Self-inflicted and untick every area (they belong to the finished run),
    reset `round`, `target`, `consecutive_clean`, `self_inflicted_streak`,
-   `started` and `head:` (to `started`), and set `status: running`.
+   `started` and `head:` (to `started`), drop `reviewer:` and `builder:`
+   (recorded again from this invocation's flags before round 1), and set
+   `status: running`.
 
 ```markdown
 # claude-loop state
@@ -140,6 +154,7 @@ status: running | paused (usage limit, resets <time>) | done | stopped (<reason>
 mode: repo | diff
 base: <sha> (main)             <- diff mode only
 reviewer: fable (effort high)
+builder: session | sonnet (effort high)
 started: <HEAD sha at round 1>
 round: <n>
 target: <area name | closing | diff>
@@ -162,6 +177,7 @@ env: <VAR=value assignments the §4 checklist needs, or none>
 - R1 backend/app/routers: 4 findings -> 4 fixed (sha, sha, ...)   <- "(in progress)" until the round ends
 - R2 backend/app/routers: 3 findings -> 2 fixed, 1 rejected (reason)
 - R3 backend/app/routers: 0 findings (reviewer fell back to opus after two failed fable runs)
+- R4 backend/app/routers: 1 finding -> 1 fixed by driver (builder failed twice) (sha)
 - R9 backend/app/services: 2 findings, all self-inflicted x2 -> fixed by reviewer (escalation, area: backend/app/services) (sha, sha)
 
 ## Needs owner (asked in the §7 report)
@@ -265,7 +281,7 @@ python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); r=[x for x in (d
 - **Record who actually reviewed.** `--model` is a request: the last line
   prints the models that served the run, from the result's `modelUsage`. Put
   it on the round's Rounds line. If it is not the requested model (a silent
-  downgrade, or the session's own model), the reviewer is less independent
+  downgrade, or the model that writes the fixes), the reviewer is less independent
   than planned: say so in the §7 report. If the JSON does not parse, no
   `.log` is written and the round is a failed review; the raw output is in
   `review-<n>.json`.
@@ -292,8 +308,8 @@ python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); r=[x for x in (d
   limit, crash, timeout or a truncated answer all look like silence. Retry
   once. If it fails again, and the cause is the reviewer model's usage limit,
   fall back to the other of `fable` / `opus` and record it; otherwise stop and
-  report the log's last lines. If the fallback lands on the session's own
-  model, say so in the state file and the final report: the reviewer is then
+  report the log's last lines. If the fallback lands on the model that writes
+  the fixes, say so in the state file and the final report: the reviewer is then
   independent by context only. **If every reviewer is out of usage, pause**:
   rename the log to `review-<n>.failed.log` (so a resume cannot read it as the
   round's review), set `status: paused (usage limit, resets <time>)`, and
@@ -358,9 +374,66 @@ if the finding came from a stranger.
   UI sends as an explicit `null` behaves nothing like one it omits.
 - Write a regression test that **fails before the fix**. A test that encodes
   your assumption rather than the system's real behaviour is worse than none.
+- **With `--builder`, hand each fix to the builder**, one run per fix (one
+  finding, or one class of findings fixed together per §2). Finish each fix
+  (its proof, §4 and its §5 commit) before starting the next, so every run
+  starts on a clean tree. Write the brief to `fix-prompt-<n>-<k>.md` and run
+  it like a review (in the background, the 2-hour timeout, output to a file):
+
+```bash
+cd "$(git rev-parse --show-toplevel)" && S=.planning/claude-loop
+test -z "$(git status --porcelain)" || { echo "tree not clean, not building"; exit 1; }
+git rev-parse HEAD > $S/pre-fix-<n>-<k>.head
+<env assignments from the state file> claude -p --model <builder> --effort <builder effort> --no-session-persistence --output-format json \
+  --permission-mode acceptEdits --allowedTools "Bash(<test command> *)" \
+  --disallowedTools "Agent Workflow Bash(git -C*) Bash(git -c*) Bash(git add*) Bash(git commit*) Bash(git push*) Bash(git pull*) Bash(git reset*) Bash(git checkout*) Bash(git switch*) Bash(git stash*) Bash(git restore*) Bash(git rebase*) Bash(git merge*) Bash(git cherry-pick*) Bash(git revert*) Bash(git am*)" \
+  < $S/fix-prompt-<n>-<k>.md > $S/fix-<n>-<k>.json 2>&1
+echo "claude exit: $?"
+git rev-parse HEAD | cmp - $S/pre-fix-<n>-<k>.head
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); r=[x for x in (d if isinstance(d,list) else [d]) if x.get("type")=="result"][-1]; open(sys.argv[2],"w").write(r.get("result") or ""); print("served by:", ", ".join(r.get("modelUsage") or {}) or "unknown"); w=([x for x in (d if isinstance(d,list) else [d]) if x.get("type")=="rate_limit_event"] or [{}])[-1].get("rate_limit_info",{}).get("unifiedWindows",{}); print("usage:", ", ".join(k+" "+format(v.get("utilization",0),".2f") for k,v in w.items()) or "not reported")' $S/fix-<n>-<k>.json $S/fix-<n>-<k>.log
+```
+
+  The last line is §1's parse line pointed at the builder's files: it writes
+  the builder's answer to the `.log` and prints who served the run and the
+  usage. Keep it in the same call as the run, where `$S` is set.
+  - The brief must contain: the finding verbatim; your triage of it (the fix
+    you want when the suggested one is wrong, and every site when it is a
+    class); the relevant file paths; the constraint to change ONLY what this
+    fix needs; a regression test written first and run to show it failing;
+    the project's test command; "the test environment is already set: run the
+    test command bare, never with a `VAR=value` prefix" (an allow rule does
+    not match past an assignment); and "do not stage or commit anything, and
+    do not edit gitignored files". The §6a notes on `<test command>` and
+    `env:` apply here too.
+  - **If HEAD moved, stop and report.** Otherwise read `git status --porcelain
+    -uall` and `git diff HEAD`: everything it changed must belong to this fix.
+    Note a served model other than `<builder>` on the Rounds line, and keep
+    the usage for §6's budget check.
+  - **A builder run failed** if it exits non-zero, writes no `.log`, changes
+    nothing, or its change fails the proof below, §4 or your triage. Discard
+    its changes (the tree was clean before it ran) and retry once with what
+    went wrong added to the brief. If the retry fails too, write the fix
+    yourself and mark it `fixed by driver (builder failed twice)` on the
+    Rounds line. If the first builder run of the loop fails because the model
+    is unknown or unavailable, do not retry: stop and report, since a
+    mistyped `--builder` would otherwise turn every fix into a driver fix.
+  - **A usage limit is not a failure.** Discard its changes, rename its files
+    to `fix-<n>-<k>.failed.json` / `.failed.log` (leave the review's files
+    alone), write the rest of this round's fixes yourself, and note `builder
+    out of usage` on the Rounds line. §6's budget check decides whether the
+    next round starts.
+- **Prove a fix you did not write yourself** (the builder's, or the reviewer
+  model's in §6a): set the non-test changes aside (`git diff HEAD -- <source
+  paths> > $S/<run>.patch`, then `git checkout HEAD -- <source paths>`,
+  moving any new source file out of the tree), run the new test and watch it
+  fail for the reason the finding names, restore the fix with `git apply`
+  (and move any new source file back), and watch it pass. Where a test lives
+  in the same file as the code it tests, set aside only the fix's hunks, not
+  the test. A test that passes without the fix encodes the other model's
+  assumption, not the defect.
 - A defect you find yourself while working, that the reviewer did not raise,
-  is fixed the same way (triaged, tested, its own commit) and noted on the
-  round's line as `own find`.
+  is fixed the same way (triaged, tested, its own commit, through the builder
+  when there is one) and noted on the round's line as `own find`.
 - Follow the repo's own conventions (commit format, authorship, prose rules).
 
 ## 4. Verify with the project's own checklist
@@ -442,11 +515,16 @@ low count.
 - **Every reviewer is out of usage** (§1): `status: paused`.
 - **The reviewer changed the repo** (§1 snapshot mismatch).
 - **A run failed**: §0's precondition check; REVIEW FAILED; a review with no
-  findings block after its retry and any usage-limit fallback (§1); an
+  findings block after its retry and any usage-limit fallback (§1); a builder
+  run that moved HEAD, or a first builder run on an unknown model (§3); an
   escalation that moved HEAD or failed twice (§6a).
 - **The budget is spent** (checked only here, after the round's bookkeeping):
-  this invocation has run `--max-rounds` rounds (default 10), or the last
-  review's usage line shows any window at or past `--usage-cap` (default 0.8).
+  this invocation has run `--max-rounds` rounds (default 10), or a usage line
+  from any of the round's runs (the review, and any builder or escalation
+  runs) shows a
+  window at or past `--usage-cap` (default 0.8). Take the highest reading per
+  window: a run that failed early prints `not reported`, and that must not
+  hide an earlier reading.
   `status: paused (budget: <which limit, and the window's reset time>)`. Never
   start another review past the cap: a review can take most of an hour of
   usage on its own, and running into the hard limit mid-round wastes it.
@@ -458,21 +536,25 @@ before writing the §7 report.
 
 **Trigger: `self_inflicted_streak` reaches 2**: two consecutive rounds where
 every new finding was self-inflicted by fixes made earlier in this loop. The
-fixing model keeps re-introducing the same class of problem, so do not write
-the next fix yourself. Let the reviewer model, which keeps spotting it,
-attempt the fix in its own session:
+fixing model (this session, or the builder) keeps re-introducing the same
+class of problem, so do not hand it the next fix. Let the reviewer model,
+which keeps spotting it, attempt the fix in its own session:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)" && S=.planning/claude-loop
 test -z "$(git status --porcelain)" || { echo "tree not clean, not escalating"; exit 1; }
 git rev-parse HEAD > $S/pre-fix-<n>.head
-<env assignments from the state file> claude -p --model <reviewer> --effort <effort> --no-session-persistence \
+<env assignments from the state file> claude -p --model <reviewer> --effort <effort> --no-session-persistence --output-format json \
   --permission-mode acceptEdits --allowedTools "Bash(<test command> *)" \
   --disallowedTools "Agent Workflow Bash(git -C*) Bash(git -c*) Bash(git add*) Bash(git commit*) Bash(git push*) Bash(git pull*) Bash(git reset*) Bash(git checkout*) Bash(git switch*) Bash(git stash*) Bash(git restore*) Bash(git rebase*) Bash(git merge*) Bash(git cherry-pick*) Bash(git revert*) Bash(git am*)" \
-  < $S/fix-prompt-<n>.md > $S/fix-<n>.log 2>&1
+  < $S/fix-prompt-<n>.md > $S/fix-<n>.json 2>&1
 echo "claude exit: $?"
 git rev-parse HEAD | cmp - $S/pre-fix-<n>.head
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); r=[x for x in (d if isinstance(d,list) else [d]) if x.get("type")=="result"][-1]; open(sys.argv[2],"w").write(r.get("result") or ""); print("served by:", ", ".join(r.get("modelUsage") or {}) or "unknown"); w=([x for x in (d if isinstance(d,list) else [d]) if x.get("type")=="rate_limit_event"] or [{}])[-1].get("rate_limit_info",{}).get("unifiedWindows",{}); print("usage:", ", ".join(k+" "+format(v.get("utilization",0),".2f") for k,v in w.items()) or "not reported")' $S/fix-<n>.json $S/fix-<n>.log
 ```
+
+The last line records who served the escalation and the usage, as for a
+builder run (§3); §6's budget check counts it.
 
 - `<test command>` is the project's test runner from the §4 checklist, so it
   can run its own regression tests (`Bash(x *)` also matches bare `x`). The
@@ -487,14 +569,8 @@ git rev-parse HEAD | cmp - $S/pre-fix-<n>.head
   output hygiene as §1.
 - **If HEAD moved, stop and report.** Otherwise inspect everything it changed
   with `git status --porcelain -uall` and `git diff HEAD`.
-- **Prove each regression test fails without its fix.** Set the non-test
-  changes aside (`git diff HEAD -- <source paths> > $S/fix-<n>.patch`, then
-  `git checkout HEAD -- <source paths>`, moving any new source file out of the
-  tree), run the test and watch it fail for the reason the finding names,
-  restore the fix with `git apply` (and move any new source file back), and
-  watch it pass. Where a test lives in the same file as the code it tests,
-  set aside only the fix's hunks, not the test.
-- **The escalation failed** if it exits non-zero, leaves an empty log, changes
+- **Prove each regression test fails without its fix**, as in §3.
+- **The escalation failed** if it exits non-zero, writes no `.log`, changes
   nothing, or its changes fail that proof, §4 or your triage. Discard its changes (the
   tree was clean before it ran), retry once (falling back per §1 on a usage
   limit), otherwise stop and report. A failed run does not use up the area's
@@ -530,7 +606,9 @@ One summary at the end, not per round, after `status:` is set:
 
 - How it ended: `done`, `paused` with the reset time, or `stopped` and why.
 - Mode and scope; in repo mode, every area with its rounds to done.
-- Reviewer model and effort, and any fallback.
+- Reviewer and builder models and efforts, any fallback or run another model
+  served, and every fix the driver wrote because the builder failed twice or
+  ran out of usage.
 - Findings per round, and the trend.
 - What was fixed, grouped by area, with commit SHAs, own finds marked.
 - **Which findings were caused by fixes earlier in this loop.** This is the

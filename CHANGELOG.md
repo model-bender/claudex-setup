@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **`/claude-loop` takes `--builder` and `--builder-effort`.** The session running the loop wrote every fix, and a command cannot change the model or effort of the session it runs in, so the only way to build on another model was to start the session on it. With `--builder MODEL`, a separate headless `claude -p` run on that model (at `--builder-effort`, default `high`) writes each fix and its regression test, locked out of commits and pushes like the escalation run, and the session triages, proves each test fails without its fix, runs the checks and commits. Without the flag nothing changes. The usage cap now counts builder and escalation runs too, and the reviewer switches models when whichever model writes the fixes is on the reviewer's model.
 - **`/codex-loop` takes `--effort` and `--builder-effort`.** Both runs used whatever `model_reasoning_effort` the Codex config held, so a config change moved a running loop, and the builder could not be run lighter than the reviewer. `--effort` sets the reviewer and the escalation, `--builder-effort` the builder, both default `xhigh`, and both are passed on every call. The loop checks each level against the model's catalogue before round 1, refuses `ultra` (it hands work to helper agents) and a low-effort reviewer, and records the effort each run actually used, read from Codex's session logs.
 
 ### Changed
