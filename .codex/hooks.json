@@ -1,0 +1,18 @@
+{
+  "description": "Codex hooks for this repo. The Stop hook drives $ralph-loop: it is the same script Claude Code runs for /ralph-loop, and it keeps the session going with the loop's prompt until the completion promise or the iteration cap.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/ralph-stop-hook.sh\"",
+            "commandWindows": "& 'C:\\Program Files\\Git\\bin\\bash.exe' scripts/ralph-stop-hook.sh",
+            "timeout": 30,
+            "statusMessage": "Checking for an active Ralph loop"
+          }
+        ]
+      }
+    ]
+  }
+}

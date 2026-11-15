@@ -23,6 +23,3 @@ A repo configured for Claude Code often has no AGENTS.md at all, so Codex runs t
 
 Add project_doc_fallback_filenames = ["CLAUDE.md"] to ~/.codex/config.toml. Because Codex takes at most one instruction file per directory and checks AGENTS.override.md and AGENTS.md first, the fallback only kicks in where no AGENTS file exists, so it is safe to leave enabled globally.
 
-## Related
-
-[[agents-override-md-and-the-project-doc-byte-cap]]

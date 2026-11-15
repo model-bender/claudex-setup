@@ -14,6 +14,15 @@ protocol that asks for per-step approval or a per-task report (keep its
 evidence habits). Questions for the owner are collected as you go and asked
 once, in the §7 report.
 
+**Run in this terminal's background shell.** Reviews, builders and escalations
+use the current session's background command tool. Do not create a tmux session
+or window, a separate terminal, or another driver session. This command's
+execution rule overrides the general preference for detached tmux jobs. Keep the
+command's session handle, collect its exit status and read its log before
+continuing. In Codex, allocate a terminal with `exec_command`'s `tty: true` and
+use a short yield time. A tool session ID alone does not prove that the job is
+visible in `/ps`; report that visibility only when it has been verified.
+
 **After any compaction, re-read this whole file** (a user-scope install lives
 at `~/.claude/commands/codex-loop.md`) and `STATE.md` before continuing.
 Compaction keeps only the start of a long command.
@@ -277,6 +286,8 @@ efforts <model>: print the reasoning efforts the catalogue lists for that model.
 review|exec <stamp>: for Codex runs of that kind started in this directory since
 <stamp> was last modified, print the models that served them, with the effort
 each ran at, and the account's usage windows from the newest rate-limit event.
+review also prints Codex's own structured verdict, the number of findings in
+its JSON review, or "none" when the run left no finished verdict.
 """
 import datetime
 import glob
@@ -345,12 +356,44 @@ def read(path):
     return (models, limits) if matched else None
 
 
-served, latest = set(), None
+def verdict(path):
+    """Return (time, review_output) from a log started here, else None.
+
+    Codex keeps its structured review in the parent exec session, not in the
+    review sub-session, as an item_completed event carrying review_output.
+    """
+    found = None
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            payload = event.get("payload") or {}
+            if event.get("type") == "session_meta":
+                if os.path.realpath(payload.get("cwd") or "") != here:
+                    return None
+            elif payload.get("type") == "item_completed":
+                item = payload.get("item")
+                output = item.get("review_output") if isinstance(item, dict) else None
+                if isinstance(output, dict):
+                    found = (event.get("timestamp") or "", output)
+    return found
+
+
+served, latest, review = set(), None, None
 for path in glob.glob(os.path.join(home, "sessions", "*", "*", "*", "rollout-*.jsonl")):
     try:
-        found = read(path) if os.path.getmtime(path) >= since else None
+        if os.path.getmtime(path) < since:
+            continue
+        found = read(path)
+        output = verdict(path) if kind == "review" else None
     except OSError:
         continue
+    if output and (review is None or output[0] >= review[0]):
+        review = output
     if found is None:
         continue
     served |= found[0]
@@ -371,6 +414,10 @@ print("served by:", ", ".join(sorted(served)) or "unknown")
 print("usage:", ", ".join(windows) or "not reported")
 if latest and latest[1].get("rate_limit_reached_type"):
     print("limit reached:", latest[1]["rate_limit_reached_type"])
+if kind == "review":
+    findings = review[1].get("findings") if review else None
+    print("verdict:", f"{len(findings)} findings, {review[1].get('overall_correctness') or 'no correctness line'}"
+          if isinstance(findings, list) else "none")
 ```
 
 ## 1. Run the review
@@ -434,8 +481,8 @@ python3 -I $S/codex_run_info.py review $S/pre-<n>.snap
 - **Check first whether the answer's last non-empty line BEGINS with
   `=== REVIEW FAILED:`; it is never retried.** Stop and report: the scope was
   empty, which §0 should have caught.
-- **An answer with no findings block (and no native list, below) is a failed
-  review, never a clean one.** An interrupted review ("Review was interrupted") or a crash look like
+- **An answer with no findings block (and no native list or empty native
+  verdict, below) is a failed review, never a clean one.** An interrupted review ("Review was interrupted") or a crash look like
   silence. Retry once; if it fails again, stop and report the log's last
   lines.
 - **A usage limit pauses the loop.** The error names a reset time. Rename the
@@ -450,9 +497,15 @@ python3 -I $S/codex_run_info.py review $S/pre-<n>.snap
   numeric block but has that list, the list is the round's findings: one
   finding per item, counted from one copy of the doubled summary, triaged like
   any other (§2). Write `native format` on the round's Rounds line. A native
-  answer with no `[P0]` to `[P3]` items is a failed review (retry once, as
-  above), never a clean one: only an explicit `=== FINDINGS: 0 ===` shows
-  the reviewer finished and found nothing. An answer with both our block and
+  answer with no `[P0]` to `[P3]` items is clean only when the helper's
+  `verdict:` line reads `0 findings`: Codex finished its JSON review with an
+  empty findings list, which is as explicit as `=== FINDINGS: 0 ===`. Count
+  it as zero findings and write `native format, empty verdict` on the Rounds
+  line. With `verdict: none`, or a count above zero that the answer does not
+  list, it is a failed review (retry once, as above), never a clean one: an
+  interrupted run or a crash leaves prose without a finished verdict (seen on
+  2026-11-08: two closing reviews answered in prose only, and each one's
+  session log held `"findings": []`). An answer with both our block and
   a native list whose items do not match the block's count is a failed
   review, never a clean one.
 

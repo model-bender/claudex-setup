@@ -26,6 +26,3 @@ Add `## Code Review Rules` to the AGENTS.md nearest the code it governs (repo-wi
 
 > "Codex Code Review can now use custom repository rules in AGENTS.md to catch those issues and point authors to the guidance behind a finding. If you already use AGENTS.md to guide coding tasks, the same file can help guide reviews, too.", Hari Srikanth, OpenAI
 
-## Related
-
-[[agents-override-md-and-the-project-doc-byte-cap]]

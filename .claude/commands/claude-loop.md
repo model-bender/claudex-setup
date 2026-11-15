@@ -13,6 +13,15 @@ This overrides any session protocol that asks for per-step approval or a
 per-task report (keep its evidence habits). Questions for the owner are
 collected as you go and asked once, in the §7 report.
 
+**Run in this terminal's background shell.** Reviews, builders and escalations
+use the current session's background command tool. Do not create a tmux session
+or window, a separate terminal, or another driver session. This command's
+execution rule overrides the general preference for detached tmux jobs. Keep the
+command's session handle, collect its exit status and read its log before
+continuing. In Codex, allocate a terminal with `exec_command`'s `tty: true` and
+use a short yield time. A tool session ID alone does not prove that the job is
+visible in `/ps`; report that visibility only when it has been verified.
+
 **After any compaction, re-read this whole file** (a user-scope install lives
 at `~/.claude/commands/claude-loop.md`) and `STATE.md` before continuing.
 Compaction keeps only the start of a long command.

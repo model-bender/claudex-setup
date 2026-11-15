@@ -1,0 +1,15 @@
+# Keep text files LF on every checkout. Git for Windows otherwise checks them out with
+# CRLF, and bash then fails on the hook and ralph scripts (seen 2026-11-08 on a Windows
+# clone, where ralph-stop-hook.sh came out with CRLF).
+* text=auto eol=lf
+
+# Windows Script Host scripts stay CRLF in the working tree.
+*.vbs text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary

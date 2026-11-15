@@ -3,11 +3,33 @@
 # Ralph Loop Stop Hook (Python-patched — no jq dependency)
 # Prevents session exit when a ralph-loop is active
 # Feeds Claude's output back as input to continue the loop
+#
+# The same script serves Claude Code and Codex. Both send JSON on stdin and take
+# {"decision": "block", "reason": <next prompt>} to continue. Codex puts the last
+# assistant message in last_assistant_message; Claude Code only gives a transcript
+# path, so that is the fallback. Codex rejects plain text on stdout from a Stop hook,
+# so status lines go out as {"systemMessage": ...}, which both tools show.
 
 set -euo pipefail
 
 # Read hook input from stdin
 HOOK_INPUT=$(cat)
+
+# WSL has python3 but no python; on native Windows python3 (and sometimes python) is
+# the Microsoft Store stand-in, which is on PATH but cannot run code. So take the
+# first candidate that actually runs; py is the Windows launcher.
+PY=""
+for c in python3 python py; do
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c "" >/dev/null 2>&1; then PY=$c; break; fi
+done
+if [[ -z "$PY" ]]; then
+  echo "Warning: Ralph loop needs python3 or python. Stopping." >&2
+  exit 0
+fi
+
+status_message() {
+  "$PY" -c 'import json, sys; print(json.dumps({"systemMessage": sys.argv[1]}))' "$1"
+}
 
 # Check if ralph-loop is active
 RALPH_STATE_FILE=".claude/ralph-loop.local.md"
@@ -38,13 +60,24 @@ fi
 
 # Check if max iterations reached
 if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
-  echo "Ralph loop: Max iterations ($MAX_ITERATIONS) reached."
+  status_message "Ralph loop: Max iterations ($MAX_ITERATIONS) reached."
   rm "$RALPH_STATE_FILE"
   exit 0
 fi
 
-# Get transcript path from hook input using Python (instead of jq)
-TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('transcript_path',''))" 2>/dev/null || echo "")
+# Codex hands over the last assistant message directly.
+LAST_OUTPUT=$(echo "$HOOK_INPUT" | "$PY" -c "
+import sys, json
+try:
+    message = json.load(sys.stdin).get('last_assistant_message')
+    print(message if isinstance(message, str) else '')
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+
+if [[ -z "$LAST_OUTPUT" ]]; then
+# Claude Code: read it from the transcript (Python instead of jq)
+TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | "$PY" -c "import sys,json; print(json.load(sys.stdin).get('transcript_path') or '')" 2>/dev/null || echo "")
 
 if [[ -z "$TRANSCRIPT_PATH" ]] || [[ ! -f "$TRANSCRIPT_PATH" ]]; then
   echo "Warning: Ralph loop transcript not found. Stopping." >&2
@@ -67,7 +100,7 @@ if [[ -z "$LAST_LINE" ]]; then
   exit 0
 fi
 
-LAST_OUTPUT=$(echo "$LAST_LINE" | python -c "
+LAST_OUTPUT=$(echo "$LAST_LINE" | "$PY" -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -77,6 +110,7 @@ try:
 except Exception:
     print('')
 " 2>/dev/null || echo "")
+fi
 
 if [[ -z "$LAST_OUTPUT" ]]; then
   echo "Warning: Assistant message contained no text. Stopping." >&2
@@ -89,7 +123,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   PROMISE_TEXT=$(echo "$LAST_OUTPUT" | perl -0777 -pe 's/.*?<promise>(.*?)<\/promise>.*/$1/s; s/^\s+|\s+$//g; s/\s+/ /g' 2>/dev/null || echo "")
 
   if [[ -n "$PROMISE_TEXT" ]] && [[ "$PROMISE_TEXT" = "$COMPLETION_PROMISE" ]]; then
-    echo "Ralph loop: Detected <promise>$COMPLETION_PROMISE</promise>. Complete."
+    status_message "Ralph loop: Detected <promise>$COMPLETION_PROMISE</promise>. Complete."
     rm "$RALPH_STATE_FILE"
     exit 0
   fi
@@ -120,7 +154,7 @@ else
 fi
 
 # Output JSON to block the stop and feed prompt back (using Python instead of jq)
-python -c "
+"$PY" -c "
 import json, sys
 print(json.dumps({
     'decision': 'block',

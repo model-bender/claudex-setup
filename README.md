@@ -21,7 +21,8 @@ repo.
 > **Why "claudex"?** **Claude** Code + Co**dex**. `/optimise` audits whichever agent tools a
 > project uses: Claude Code by default, Claude Design with `--design`, OpenAI Codex
 > with `--codex`, keeping one tracker per tool. Working in this repo with Codex? Start at
-> [`AGENTS.md`](AGENTS.md), the Codex-side counterpart to [`CLAUDE.md`](CLAUDE.md).
+> [`AGENTS.md`](AGENTS.md), which holds the rules both tools share; [`CLAUDE.md`](CLAUDE.md)
+> imports it and adds the Claude-Code-only ones.
 >
 > **Scope:** the lessons library is **Claude-Code-first** (it also mines a Codex/OpenAI
 > voice cluster, keeping what transfers to general agentic coding), and the commands, subagents,
