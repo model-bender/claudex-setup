@@ -41,7 +41,16 @@ Requires the Codex CLI, authenticated, with `codex review` available
   tracked source into areas along directory lines, each roughly 3,000 to 8,000
   lines of non-test source, ordered by risk (auth, payments, personal data and
   retention, migrations first). Tests are reviewed with the code they cover.
-  Skip generated, vendored and lock files, fixtures, binary assets and docs.
+  Classify files by what they do, not their extension. Include code and
+  configuration, plus Markdown that defines behaviour or tells a user or
+  assistant how to operate the product: skills, commands, agents, project
+  rules (`AGENTS.md`, `CLAUDE.md`) and setup/usage guides. Check instructions
+  against the implementation for incorrect commands or paths, missing
+  prerequisites, contradictions and steps that could lose work. Wording
+  preferences alone are not findings.
+  Skip generated, vendored and lock files, fixtures, binary assets and
+  background/reference material that does not define a workflow. Read
+  skipped files when needed to verify a contract or a generated copy.
   Stay on an area until it has two consecutive clean reviews, then move on.
   When every area is done, run the **closing review**: diff mode over the
   loop's own commits (`<started>...HEAD`) until two consecutive clean rounds,
@@ -117,9 +126,13 @@ two clean reviews, and how many of its fixes the next review finds fault with.
    is missing often hangs rather than failing, which reads as slowness and can
    burn half an hour. If a suite runs far past its usual time, suspect a
    missing service before suspecting the tests.
-2. **Confirm there is something to review.** Repo mode: build the area map
-   from `git ls-files`, each area with its paths and line count; it must not be
-   empty. Diff mode: `git rev-parse --verify <base>^{commit}` must succeed and
+2. **Confirm there is something to review.** Repo mode: account for tracked
+   files in the selected scope from `git ls-files`, with included areas or
+   excluded groups and their reasons. Each area lists its paths and line
+   count; the map must not be empty. On resume, reconcile it with the current
+   files and scope rules, adding missing coverage as pending rather than
+   treating the old map as complete. Diff mode:
+   `git rev-parse --verify <base>^{commit}` must succeed and
    `git diff --quiet <base>...HEAD` must report a change (exit 1); then resolve
    the base to a SHA, record it as `base:`, and use that SHA as `<base>`
    everywhere below, since a branch name can move mid-run and trip the §1
@@ -784,6 +797,7 @@ One summary at the end, not per round, after `status:` is set:
 
 - How it ended: `done`, `paused` with the reset time, or `stopped` and why.
 - Mode and scope; in repo mode, every area with its rounds to done.
+- Included and excluded file counts, exclusion reasons and any pending areas.
 - Reviewer and builder models and efforts, any run another model or effort
   served, every fix the
   driver wrote after the builder failed twice, and the usage at the stop.
