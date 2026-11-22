@@ -138,6 +138,10 @@ been added, fold it into the nearest cluster.
   claude code`). For canonical: fetch the CHANGELOG raw file, search GitHub issues
   (`site:github.com/anthropics/claude-code`), and hit the HN Algolia endpoint
   `https://hn.algolia.com/api/v1/search_by_date?query=claude%20code` for recent threads.
+- **Start short and broad, then narrow.** Open with a two or three word query (a handle
+  plus `claude code`), look at what comes back, and only then add terms. When a query
+  returns nothing, shorten it instead of rewording it at the same length. Agents default
+  to long, specific queries that return few results.
 - **WebFetch** each promising URL to read the actual post and pull the exact quote.
   - **X/Twitter, try a reader mirror before declaring a dead end.** Direct `x.com`
     fetches are login-walled, but mirrors work. **Try both, and don't stop at the first

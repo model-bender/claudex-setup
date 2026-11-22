@@ -1,6 +1,6 @@
 ---
 description: "Extract actionable agent-tooling lessons (Claude Code, Claude Design, Codex) from transcripts. Newer lessons supersede older contradicting ones."
-argument-hint: "[all | new | <path-or-glob>]"
+argument-hint: "[all | new | <path-or-glob>] [--deep]"
 ---
 
 # Extract Lessons
@@ -17,6 +17,7 @@ A "lesson" is a concrete, transferable improvement to how someone uses the **age
 - empty or `new` (default): process only transcripts not yet in `lessons/.processed.json`
 - `all`: reprocess every transcript (rare, only when the extraction criteria change). **The criteria changed on 2026-07-17** (scope widened to Claude Design + Codex), so every transcript ledgered before that date was mined against Claude-Code-only criteria and its `.processed.json` entry is **not** evidence that its design or Codex content was ever considered. Re-run with `all` over the design/Codex-heavy scopes to backfill. **They changed again on 2026-08-29** (one atomic claim per lesson), so a transcript ledgered before that date is not evidence its granular sub-tips were ever extracted: the 2026-08-31 consolidation split pass recovered only what compound lessons already carried as clauses, not what miners never wrote. Backfill with `all` over targeted scopes, starting with transcripts whose lessons needed splitting.
 - a path or glob (e.g. `transcripts/ray-amjad/`): process just that scope, minus already-processed (unless `all` is also passed)
+- `--deep` (opt-in, added to any of the above): a blind second read on the strongest model tier, described in §5a. **Only when the person running the command asks for it by name.** A plain `/extract-lessons`, a scheduled run and `/weekly-update` never add it, and an agent never adds it on its own judgement: it costs several top-tier agents and a long judging pass.
 
 ## Paths (all relative to the repo root: resolve the root first)
 
@@ -146,6 +147,18 @@ Give each miner subagent this instruction set:
 
 Collect all candidates from all miners into one list.
 
+### 5a. Deep read (only with `--deep`)
+
+A deep read recovers what the fast-tier miners lose. On 2026-11-22 it was run over 21 transcripts the normal run had already mined: the normal run had filed 20 lessons, the blind top-tier read raised all 20 plus 12 more that held up, and 185 of its 226 candidates restated a lesson the library already had. So expect roughly three extra lessons for every five already filed, and most of the work to be judging duplicates. That cost is why it is opt-in.
+
+What a finished deep read looks like, where it differs from a normal run:
+
+- **Scope.** The transcripts the argument names are read even when the ledger already holds them, so `--deep` with a path or glob re-reads a batch a normal run has mined (a week's YouTube files share a fetch date in their names). With `new` it replaces the normal miners for the unledgered transcripts.
+- **Miners are blind and on the strongest tier.** At most 5 at once, about 13,000 words of transcript each. They get the §5 rules but not the dedupe corpus and not what any earlier pass filed or dropped, and they are told not to read `lessons/`, `projects/` or the git history: a miner that can see the library drops what it takes for a duplicate, which is one of the losses being recovered. They return every lesson that meets the bar. Each candidate also carries `quote`, 1 to 3 sentences copied from the transcript by script and never retyped, and `strength`, `strong` or `marginal`. Each miner writes its JSON outside the repo and replies with counts only.
+- **Every candidate gets exactly one verdict, in the main session:** restates a lesson filed from the same transcript, restates an older lesson, not a lesson, marginal, or miss. A candidate is a miss only when a search of the active lessons' titles, TL;DRs and bodies under at least two different phrasings finds no lesson making the claim; on the first deep read a single search missed an older lesson that the trace found later. A candidate whose `quote` is not an exact substring of its transcript, checked by script, is dropped.
+- **Only misses are filed**, through §7 to §10 unchanged, and §7a verifies every one of them, not a sample. Marginal candidates are listed in the report, not filed.
+- **The §11 report gives exact counts:** transcripts read, candidates, the count per verdict (they sum to the candidate count), how many misses an earlier pass never raised against how many it raised and dropped, and what the verifier corrected.
+
 ### 6. Dedupe and resolve
 
 For each candidate, in order:
@@ -246,6 +259,7 @@ This step is then the final reconciliation: every transcript path from this run'
 - [ ] Category dirs used all exist; no invented category names.
 - [ ] **Every new lesson naming a settings key, env var, CLI flag, hotkey or version number states the live source it was checked against and the version it was checked on** (§5). A mechanism taken from a transcript in the transcript's own wording, unchecked, is the failure this guard exists for.
 - [ ] **The §7a verification ran, a FRESH subagent (not a fork) checked written lessons against the transcripts they cite, and its findings were resolved BEFORE INDEX.md and the ledger were touched.** The §11 report states the verified and dropped counts.
+- [ ] **With `--deep` (§5a):** the run was asked for by name; every candidate has one verdict and the verdict counts sum to the candidate count; every `quote` is an exact substring of its transcript; no miss was filed on a single search phrasing; every filed miss was verified.
 - [ ] **The course source was reconciled (§3.3), or the report says why not.** A clean `.processed.json` is evidence about the YouTube job only. An "all transcripts already processed" result is not reportable unless the catalog diff actually ran, or the report states that the MCP was unavailable / the scope excluded the course. Any video found with `languageCount: 0` was recorded in `transcripts/no-transcript-available.md` rather than left to be rediscovered next run.
 
 ### 11. Report

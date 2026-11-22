@@ -13,7 +13,7 @@ The steps for this command live in a Claude Code file. Before doing anything els
 
 If the file is missing, stop and say so: this skill has nothing to run without it.
 
-The file was written for Claude Code, which hands it the words typed after the command as `$ARGUMENTS`. Here those are whatever the user typed after `$extract-lessons`, or nothing. Expected form: [all | new | <path-or-glob>]
+The file was written for Claude Code, which hands it the words typed after the command as `$ARGUMENTS`. Here those are whatever the user typed after `$extract-lessons`, or nothing. Expected form: [all | new | <path-or-glob>] [--deep]
 
 ## Claude Code to Codex
 
