@@ -25,4 +25,4 @@ Ask what the artefact becomes. Becomes code in a repo you have open: run /design
 
 ## Related
 
-[[claude-design-is-web-only]], [[hand-off-claude-design-exports-to-claude-code]], [[iterate-ui-as-design-artboards-before-implementing]]
+[[hand-off-claude-design-exports-to-claude-code]], [[iterate-ui-as-design-artboards-before-implementing]]
