@@ -598,6 +598,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Measure reviewer noise by sorting its comments by how the author responded](workflows/measure-reviewer-noise-by-how-people-respond-to-comments.md): Classify every reviewer comment by outcome: fixed, said it was wrong, said the behaviour was intentional, or decided it does not matter.
 - [Review a plan as an artifact: comment inline on each item, send the comments to Claude, then tell the session to build what you approved](workflows/review-a-plan-as-an-artifact-with-inline-comments.md): Publish the plan (or list of proposals) as an artifact, mark each item 'do this' or 'don't do this' in inline comments, send them to Claude so it revises the artifact, then return to the chat and ask it to implement the approved items.
 - [Prove a trimmed script is equivalent by running old and new side by side](workflows/prove-a-trimmed-version-by-running-both-side-by-side.md): When the agent simplifies or cuts code, have it run the original and the trimmed version on the same input and show both results.
+- [Do not force one template on decision artifacts](workflows/do-not-template-decision-artifacts.md): Let each briefing artifact be designed for the situation at hand rather than filling a fixed template.
 
 ### Agents
 
