@@ -91,7 +91,7 @@ Default team structure for multi-ticket work. The **team-lead is the role your m
 Claude Code ignores this section.
 
 - **This repo's Codex config surface** is exactly what `/optimise --codex` inventories anywhere
-  else: this `AGENTS.md`, a project `.codex/` directory (none here yet), and the relevant
+  else: this `AGENTS.md`, a project `.codex/` directory (tracked here: `hooks.json` and `agents/`), and the relevant
   `~/.codex/config.toml`. Adding a new top-level file? It must also be added to the `ALLOWED`
   path allowlist in `scripts/publish.sh`, or publishing hard-fails by design.
 - **Tracked Codex usage** lives in the registry: a multi-tool project gets a `projects/<slug>/codex/`

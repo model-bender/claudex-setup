@@ -44,7 +44,7 @@ cd claudex-setup && uv sync     # then open Claude Code here
 ```
 
 The full walkthrough is in [`USER_GUIDE.md`](USER_GUIDE.md). Prefer the commands available
-*inside* another repo? It's also a plugin: `/plugin marketplace add model-bender/claudex-setup`.
+*inside* another repo? It's also a plugin: `/plugin install claudex-setup --marketplace model-bender/claudex-setup` (one step, Claude Code 2.1.275 or later), or `/plugin marketplace add model-bender/claudex-setup` first.
 
 ## Learn from the creators you pick
 
