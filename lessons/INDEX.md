@@ -128,6 +128,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [For a Hard Issue, Have Codex Spin Up Three Threads With Different Constraints, Review the PRs, Merge One](workflows/codex-spawn-competing-threads-with-different-constraints-and-merge-one.md): Ask a Codex thread to create three threads for the same issue, such as performance first, minimal diff, and simplest elegant solution (may refactor), then compare the PRs and merge the one you like.
 - [Queue a Message Into Another Codex Session From a Script With codex queue --resume](workflows/codex-queue-resume-wakes-a-parked-session.md): `codex queue --thread <id|name> --message <text> --resume` drops a message into an existing session and wakes it if it is not loaded.
 - [Ask Codex to 'turn that into a site' to share a localhost build](workflows/ask-codex-to-turn-a-localhost-build-into-a-site.md): A localhost URL only works on your machine. To share what Codex built, ask it to turn it into a site, then choose who can open it.
+- [Verify a rendered video from the exported file: sample frames and re-transcribe the audio](workflows/verify-the-exported-file-by-frames-and-retranscription.md): Have the agent check the exported video file, not the project: look at frames from the render, transcribe the finished audio, and compare that transcript with the script. Then fix what does not match and render again.
 
 ### Agents
 
@@ -142,6 +143,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Derive a Skill's Subjective Verification Steps by Asking What a Human Would Check to Approve It](skills/derive-subjective-verification-from-what-a-human-would-check.md): When a task has no hard metric (does this sound right, does this look good), ask yourself what you personally would look at before giving the output a stamp of approval, then write that exact check into the skill's verification instructions.
 - [Have Your Setup-Audit Skill Write a Dated Scored Report, So You Can See the Trend](skills/write-each-setup-audit-to-a-dated-report-so-the-score-trends.md): A recurring audit of your own agent setup should write each run to its own dated file in an audits/ folder with a score, not just print to the terminal.
 - [Keep Codex Skill Descriptions Short - a Long One Steals Budget From Every Other Skill](skills/keep-codex-skill-descriptions-short.md): The skill catalog renders into a fixed metadata budget; under pressure Codex shortens descriptions, then drops them, then omits whole skills, so one verbose description hides others.
+- [Put crop and redact rules for screenshots inside the content skill itself](skills/bake-screenshot-redaction-into-the-content-skill.md): If a skill captures screenshots for publishing (for example a video to article skill), write the cropping and the blurring of API keys and personal emails into the skill so every run does it without being asked.
 
 ### Plugins
 
@@ -238,6 +240,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Trigger Scheduled Tasks From Gmail, Slack, and GitHub Events Instead of Polling on a Timer](automation/trigger-scheduled-tasks-from-app-events-not-timers.md): Event triggers fire on the actual PR review or email instead of burning polled runs; an event-triggered task cannot also keep a time-based schedule, and near-simultaneous events may coalesce.
 - [After Shipping a Feature in Codex, Add Usage Events and a Weekly Automation That Reports Adoption in Slack](automation/codex-ship-usage-events-then-schedule-a-weekly-adoption-report.md): In the shipping thread, ask Codex to add PostHog events for the feature, then after merge set an automation to message you weekly on Slack about usage.
 - [When an agent provisions paid cloud hardware, have it set an idle shutdown and check it yourself the next day](automation/have-the-agent-set-auto-shutdown-and-verify-it-yourself.md): After an agent rents compute for you, ask it to stop any idle session automatically and shut down the hardware, then confirm yourself the next day that the machine is off.
+- [Add Codex as a reviewer on GitHub pull requests](automation/add-codex-as-a-github-pr-reviewer.md): Codex has a GitHub integration that reviews pull requests automatically when they open, or on demand when you call it on a PR.
 
 
 
@@ -268,6 +271,8 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Pass --trust to codex exec and codex review in scripts, or project config and MCP servers silently stay off in untrusted directories](gotchas/pass-trust-to-codex-exec-and-review-in-untrusted-checkouts.md): Headless Codex runs in a directory you have not trusted ignore the repo's config and MCP servers, and --sandbox workspace-write does not change that; --trust saves trust for that project.
 - [After Adding a Denied Path to a Codex Permission Profile, Make a Test Commit](gotchas/make-a-test-commit-after-adding-deny-entries-to-a-codex-permission-profile.md): With any denied-read path configured, Codex's execpolicy allow rules silently stay sandboxed (openai/codex#38318), so a rule that runs git outside the sandbox stops working and every git write fails.
 - [On GPT-6.2 Sol and Astra, put the system prompt in a leading developer message, not the Responses instructions field, or it never caches](gotchas/gpt-6-2-never-caches-the-responses-instructions-field-use-a-leading-developer-message.md): When building or configuring a custom harness on the Responses API with GPT-6.2 Sol or Astra, send the system prompt as a leading developer message inside input, because the top-level instructions field stays at 0 cached tokens.
+- [When an agent-built automation runs cleanly but does nothing, ask the agent to read the run before you change anything](gotchas/a-clean-run-with-no-effect-is-often-a-safeguard-the-agent-added.md): Agents add safeguards you did not ask for.
+- [When you ask Codex to migrate a routine, say whether the old one should keep running](gotchas/say-whether-the-old-routine-keeps-running-when-you-ask-for-a-migration.md): Asked to move a scheduled routine to a new host, Codex paused the original desktop routine by its own decision. If you want both running (a demo, a parallel trial), say so in the migration prompt, and read the final report for side effects.
 
 ### Hooks
 
@@ -316,6 +321,9 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Stop wrapping every task in /goal or a Ralph loop](workflows/skip-goal-command-and-ralph-loops-by-default.md): With current models, state a clear goal and give the right tools, and the agent keeps going on its own. Reach for /goal or a Ralph loop only when that fails, not by default, claude-code + codex.
 - [Cross-check a model's vulnerability findings with a deterministic scanner](workflows/cross-check-agent-reported-vulnerabilities-with-a-scanner.md): When an agent reviews your own app for security holes, run a scanner such as Nuclei as well and use it to check the model's claims, claude-code + codex.
 - [Design internal tools with a CLI as the main interface so agents can operate them](workflows/design-internal-tools-cli-first-so-agents-can-operate-them.md): When you build an internal tool, specify a CLI alongside the web and mobile front ends and treat it as the way agents will use the tool, claude-code + codex.
+- [Plan the feature gate and the integration seam before the agent writes code](workflows/plan-feature-gates-and-isolate-integration-before-agents-code.md): At planning time, put the whole new feature behind a gate and split the work into leaf pieces that touch no existing code plus a separately gated integration layer, claude-code + codex.
+- [Treat merge-ready as not launch-ready: audit the whole feature with agents first](workflows/audit-the-whole-feature-with-agents-before-launch.md): After the gated pieces have landed, run a set of agents over all the code written for the feature before you launch it, looking at performance, bugs, security and whether it works to spec, claude-code + codex.
+- [Run one audit across all your project setups to get per-project fixes and cross-project rules](workflows/run-a-meta-audit-across-all-project-setups.md): Have a single overseeing setup audit every project's configuration and return two lists: improvements specific to each project, and improvements that generalise to all of them, claude-code + codex.
 
 ### Agents
 
@@ -348,6 +356,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Source a Palette From Huemint and a Font Pairing From Font Pair to Escape the AI-Default Inter Look](configuration/source-palette-from-huemint-and-fonts-from-font-pair.md): When you have no existing brand, pull a colour palette from Huemint and a font pairing from Font Pair instead of letting the tool choose, specifically to avoid the default Inter that AI design tools reach for, claude-design + claude-code.
 - [Turn Tacit Know-How Into Playbook Files Referenced From AGENTS.md Instead of Skills](configuration/dictate-process-into-playbook-files-and-point-agents-md-at-them.md): Mark Kashef had a client dictate her launch and webinar process for an hour, saved it as two plain markdown files in a playbooks folder, and had AGENTS.md reference them for relevant tasks, rather than building skills, claude-code + codex.
 - [Test CLAUDE.md With Five Probe Tasks in Fresh Sessions Instead of Rewriting It Again](configuration/test-claude-md-with-five-probe-tasks-in-fresh-sessions.md): Instead of growing the instruction file after each miss, keep a fixed set of five probe prompts, run each in a fresh session, kill it as soon as you see the first moves, and change one line only when a probe fails, claude-code + codex.
+- [Ship an AGENTS.md with the architecture and non-negotiable rules so a user's agent can install your tool](configuration/ship-agents-md-with-architecture-and-hard-rules-for-agent-led-setup.md): For a fragile or experimental tool, write the repo so a coding agent can set it up: an AGENTS.md that explains the architecture and lists non-negotiable rules such as the host app version it requires, next to the README, claude-code + codex.
 
 ### Context Management
 
@@ -378,6 +387,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Turn Reasoning Off on Local Coding Models: It's Faster and Scored the Same or Better](model-selection/turn-reasoning-off-on-local-coding-models.md): Small local models loop inside the chain of thought and charge you twice for it, generation time on your hardware plus KV-cache RAM, for no measured quality gain on coding tasks, claude-code + codex.
 - [Send Exhaustive 'Check Every Combination' Goals to Codex, Not Claude, and Budget Roughly 3 to 5x the Time and Tokens](model-selection/route-exhaustive-goal-runs-to-codex-and-expect-3-to-5x-the-time.md): Mark says Claude 5.5 is less aggressive and comprehensive on a /goal, while Codex on the same goal takes three to five times longer with far more tokens.
 - [When Claude Refuses to Copy a Credential or Click Log In for You, Hand That Step to Codex](model-selection/hand-login-and-credential-steps-to-codex-when-claude-refuses.md): Mark says Claude's computer use lags Codex's and Claude refuses to copy credentials or use an API key even with permission, while Codex usually does it.
+- [Compare two runs at the same spend, not at their first outputs](model-selection/compare-agent-runs-at-equal-spend.md): When one run costs far more than another, ask where the cheaper one would be if it were given the difference to keep improving, and judge on that baseline, claude-code + codex.
 
 ### MCP
 
@@ -415,6 +425,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Log Each Side-Effecting Action the Moment It Happens, Not at the End of the Run](automation/record-side-effecting-actions-as-they-happen.md): If a scheduled run can place an order, send an email or move money, write the record at the moment of the call, so an interrupted run can be recovered without repeating the action, claude-code + codex.
 - [Power Internal Tools With the Codex/Claude SDK on Your Cached CLI Login Instead of a Metered API Key](automation/build-internal-tools-on-the-agent-sdk-with-your-cached-cli-login.md): Construct the Codex SDK (or Claude Agent SDK) client with no arguments so it picks up the login your CLI already cached, and every button in your self-built internal tool runs a headless worker on the subscription you already pay for - no API key, no second credit card, codex + claude-code.
 - [Hand Computer Use a Product's Setup Docs and Let It Click Through the Integration Wizard](automation/point-computer-use-at-a-product-s-docs-to-self-configure-it.md): Instead of clicking through a multi-step web setup by hand (an integration wizard, TestFlight, an OAuth client for Google sign-in, an ad network), point the agent's computer use at the product's setup docs or console, give it a short brief about you and the app, and answer its questions, claude-code + codex.
+- [Schedule a monthly automated audit of your whole skill library](automation/schedule-a-monthly-audit-of-your-skill-library.md): Run a recurring job that has an agent re-read the current tool documentation, refine every skill against it, and report which installed skills you are not using, claude-code + codex.
 
 ### Remote Access
 
@@ -599,6 +610,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Review a plan as an artifact: comment inline on each item, send the comments to Claude, then tell the session to build what you approved](workflows/review-a-plan-as-an-artifact-with-inline-comments.md): Publish the plan (or list of proposals) as an artifact, mark each item 'do this' or 'don't do this' in inline comments, send them to Claude so it revises the artifact, then return to the chat and ask it to implement the approved items.
 - [Prove a trimmed script is equivalent by running old and new side by side](workflows/prove-a-trimmed-version-by-running-both-side-by-side.md): When the agent simplifies or cuts code, have it run the original and the trimmed version on the same input and show both results.
 - [Do not force one template on decision artifacts](workflows/do-not-template-decision-artifacts.md): Let each briefing artifact be designed for the situation at hand rather than filling a fixed template.
+- [Collect feedback through an artifact with inline editing and a copy-all-changes button](workflows/artifact-with-inline-editing-and-a-copy-changes-button-for-feedback.md): Ask Claude for an artifact that shows the draft, lets reviewers edit it in place, and has a button that copies all their changes, so the feedback comes back as text you can paste straight into Claude.
 
 ### Agents
 
@@ -783,6 +795,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Enable your skills on your Claude account, because cloud threads do not load local skills or settings](skills/enable-skills-on-your-claude-account-so-cloud-threads-get-them.md): Cloud threads do not load the skills and settings on your computer. Turn the skills on in your Claude account so threads get them.
 - [Build a learning skill that fetches primary sources and explains them with quotes and links](skills/design-a-teach-skill-around-primary-sources-with-quotes-and-links.md): When you have the agent teach you a topic, make the skill go out and fetch high-trust primary sources, then break them down with direct quotes, attribution and the exact link each claim comes from.
 - [Run /skill-doctor to see what each skill costs and how often it is used, then remove the unused](skills/run-skill-doctor-to-find-and-remove-skills-you-never-use.md): /skill-doctor reports each skill's context cost and usage. Remove the ones you never use first, then eval the rest.
+- [After saving a script into a skill, run the task twice and confirm the saved file is what runs](skills/confirm-the-skill-really-calls-the-saved-script.md): Saving a script into a skill is not done until you have run the same kind of task twice, compared the important parts, and checked the skill is calling the saved file rather than regenerating code.
 
 ### Plugins
 
@@ -855,6 +868,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [DISABLE_TELEMETRY=1 also freezes feature flags, so Fable 5.2 and other flagged features vanish; pin the model in modelPicker or use /model](settings/disable-telemetry-also-freezes-feature-flags.md): With telemetry off, the /model picker keeps the stale Fable 5.1 row. `claude --model claude-fable-5-2` and `/model claude-fable-5-2` still work, and a user-settings `modelPicker` block adds the row.
 - [CLAUDE_AUTOCOMPACT_PCT_OVERRIDE stacks on autoCompactWindow: 300000 at 75 compacts near 210K, not 300K](settings/autocompact-pct-override-still-stacks-on-the-auto-compact-window.md): The percent override still works in 2.1.325, and it is applied to the window you set. Claude Code compacts at min(window x pct, window - 13,000), where the window is autoCompactWindow minus an output reserve of up to 20,000 tokens. So `"autoCompactWindow": 300000` with `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75` compacts at about 210K.
 - [Try Claude Code's experimental Code Mode for tasks that chain many tool calls](settings/try-claude-code-code-mode-for-tasks-with-many-tool-calls.md): Code Mode makes Claude write JavaScript that calls its tools (Bash, Read, Edit, MCP) in one step, so intermediate results stay out of the context window. Turn it on with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 and read the generated code with Ctrl+O.
+- [Set showClearContextOnPlanAccept so approving a plan can drop the planning exploration](settings/enable-clear-context-option-on-plan-accept.md): Add `"showClearContextOnPlanAccept": true` to settings.json. The plan approval menu then gains an option that approves the plan and clears the context used to make it.
 
 ### Configuration
 
@@ -916,6 +930,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Write REVIEW.md as a short statement of what failure looks like in this repo](configuration/review-md-states-what-failure-looks-like-in-this-repo.md): A good REVIEW.md is short and names the repo's failure mode: for a docs repo 'it lies', for a config repo 'it misroutes'.
 - [In REVIEW.md, cap the nits and list the paths to skip](configuration/review-md-cap-nits-and-list-paths-to-skip.md): Tell the reviewer a maximum number of nits per review and which paths it should not comment on.
 - [Move review comments you keep repeating into REVIEW.md](configuration/move-repeated-review-comments-into-review-md.md): When the same human review comment keeps coming up, write it into REVIEW.md so the automated reviewer checks it.
+- [Run Claude Code against a local model with `ollama launch claude --model <model>`](configuration/ollama-launch-claude-runs-claude-code-on-a-local-model.md): Ollama can start Claude Code wired to a model running on your own machine with one command, so the session is free, private and works offline.
 
 ### Permissions
 
@@ -990,6 +1005,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Commit your deny rules to the repository's .claude/settings.json so single-repository cloud sessions pick them up](permissions/commit-deny-rules-to-project-settings-so-cloud-sessions-get-them.md): Personal settings do not reach a cloud session; a committed `.claude/settings.json` does in a single-repository session, but not in a project's cloud threads or a multi-repository session.
 - [Let Claude prepare the firewall but turn it on only after you confirm](permissions/keep-firewall-enable-as-a-separate-confirmed-step.md): When Claude configures a server, have it set up the firewall rules and leave the firewall off until you say so. A wrong firewall setup can lock you out of your own server.
 - [Limit which tasks an agent can see, not only what it can do](permissions/limit-what-work-an-agent-can-see.md): An agent that can see unassigned work may decide to be proactive about it. Scope its view to the tasks that are its own.
+- [Run /goal in auto mode or it stalls on permission prompts](permissions/run-goal-in-auto-mode-so-it-is-not-stopped-by-permission-prompts.md): A goal does not change the permission mode. Run it in auto mode; in Manual mode Claude still stops to ask before any tool call your settings do not already allow, and the run is not autonomous.
 
 ### Context Management
 
@@ -1275,6 +1291,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Give the agent a tool that reads the result instead of writing a 'verify it went through' rule](prompting/give-the-agent-a-status-tool-instead-of-a-verify-rule.md): With recent models you can drop rules like 'verify the refund actually went through'. Give the agent a tool that returns the status and it checks its own work.
 - [Have the agent state the expected output before running code, then compare](prompting/make-the-agent-predict-the-output-before-it-runs-code.md): Add a rule that the agent says what it expects to see before each run, runs it, and shows the real output next to the prediction.
 - [Swap fixed caps in your instructions for 'follow the style of the surrounding code'](prompting/replace-hard-limits-with-follow-the-surrounding-style.md): Where an instruction sets a hard limit (the transcript's example is how many comments Claude may write), replace it with a rule that tells Claude to match the conventions of the code around it.
+- [For visual deliverables, let the model crop and re-inspect what it sees rather than judge in one look](prompting/let-vision-work-analyze-crop-and-verify-in-a-loop.md): On dense visual input the model does its best work when it can analyze, crop and visually verify step by step. Give it that loop when it checks sites, slide decks or charts.
 
 ### Automation
 
@@ -1344,6 +1361,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Let an unattended memory job touch only memory files: revert everything else in git status before it commits](automation/let-an-unattended-memory-job-commit-only-memory-paths.md): The poster runs an hourly headless `claude -p` job that rewrites CLAUDE.md and memory notes from past transcripts. It runs in a worktree on its own branch, and before committing it reverts every path outside an allowlist. A job that decides to "helpfully" fix a bug can never land a code change; it logs the bug instead.
 - [Recreate old scheduled tasks and loops to get the 30-day lifetime instead of 7 days](automation/recreate-old-loops-and-scheduled-tasks-to-get-the-30-day-lifetime.md): Recurring tasks and /loop now last 30 days, but only for tasks created on or after 2.1.330.
 - [Design cloud routines around an hourly minimum interval](automation/cloud-routines-run-at-most-hourly.md): A scheduled cloud routine cannot run more often than once an hour, so do not plan a workflow that needs five or ten minute polling on it.
+- [Write qualitative lint rules as plain-language questions and have a cheap classifier run them on every PR](automation/qualitative-linters-plain-language-rules-checked-by-cheap-classifier.md): For rules a conventional linter cannot express, write the rule as a question (for example 'does the name describe everything this function does, including the side effects?') and have a fast, cheap classifier answer it for each unit of code on every PR.
 
 ### Remote Access
 
@@ -1412,6 +1430,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Press f in /usage to have Claude Code apply the recommendations it can](commands/press-f-in-usage-to-have-claude-apply-the-recommendations.md): When /usage shows recommendations, press f and Claude Code acts on the ones it can.
 - [Use /deep-research when a question needs many sources cross-checked](commands/use-deep-research-for-cross-checked-multi-angle-research.md): `/deep-research <question>` runs a built-in workflow that searches from several angles, cross-checks sources, discards claims that do not hold up and returns one report.
 - [Use the cloud ultrareview for a deep bug check, knowing only three runs are free](commands/run-a-cloud-bug-review-with-code-review-ultra-and-mind-the-three-free-runs.md): The ultrareview command runs a deep bug review of your branch's changes in Anthropic's cloud. It needs a git repository and a claude.ai login, and you get three free runs before it costs money.
+- [Use `claude --safe-mode` as a no-customisation baseline](commands/baseline-with-claude-safe-mode.md): `claude --safe-mode` starts Claude Code with your customisations disabled, which shows what the bare model does on a task without deleting anything.
 
 ### Gotchas
 
@@ -1506,6 +1525,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Treat 'it ran fine' as true only for the environment it ran in, and have a reviewer run it in the target one](gotchas/it-works-was-tested-in-one-terminal-only.md): A script that passed when Claude tested it can still fail in the user's real environment. Have a reviewer predict where it breaks and run it that way.
 - [Check for CLAUDE.md files outside the project that load into it](gotchas/a-claude-md-from-another-folder-can-load-into-your-project.md): Cleaning the CLAUDE.md inside a project is not enough: instructions can be coming from somewhere else. /doctor found a CLAUDE.md from a separate project in the speaker's desktop folder loading into the speaker's project at roughly 2,000 tokens.
 - [Check which model answered: flagged security requests on Fable re-run on Opus 4.8](gotchas/fable-requests-flagged-as-security-rerun-on-opus-4-8.md): Requests on Fable that a safety filter flags as security related are answered by Opus 4.8 instead. Output you take for Fable's may not be, so check before judging the model on security-flavoured work.
+- [Choose Yes at Claude Code's custom API key prompt the first time a key-based launcher starts](gotchas/approve-the-custom-api-key-prompt-on-first-launch.md): The first time an interactive Claude Code session starts with a new key in `ANTHROPIC_API_KEY`, it asks whether to use that key. You have to choose Yes, and the preselected option is No.
 
 ### Hooks
 
@@ -1552,6 +1572,7 @@ Active lessons learned from transcripts about improving **Claude Code, Claude De
 - [Before Turning On Code Mode, Make Bash PreToolUse Hooks Check Every Part of a Compound Command](hooks/make-bash-pretooluse-hooks-check-every-part-of-a-compound-command-before-code-mode.md): In Code Mode a Bash call made from Claude's JavaScript can reach your PreToolUse hook with a prefix, so a hook that only matches the start of the command (such as `git push`) lets it through.
 - [In Code Mode, Check the Script Itself With a PreToolUse Hook That Matches REPL and Reads tool_input.code](hooks/in-code-mode-check-the-script-itself-with-a-pretooluse-hook-on-repl.md): In Code Mode your existing hooks judge each tool call Claude's JavaScript makes; to check the script itself, add a PreToolUse hook whose matcher is `REPL` and read the code from `tool_input.code`.
 - [Use a hook that checks Claude ran a review before a PR is submitted](hooks/gate-pr-creation-on-a-hook-that-checks-a-review-ran.md): A lifecycle hook can check, at PR submission time, whether a review has been run in the session.
+- [Point /plugin-authoring at your CLAUDE.md and ask which rules should become hooks](hooks/mine-claude-md-for-rules-that-should-be-hooks.md): Ask Claude to read your CLAUDE.md files and propose hooks that would enforce those rules deterministically, then remove the rules it converts.
 
 ## Last extraction run
 

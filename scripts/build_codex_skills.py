@@ -84,6 +84,11 @@ ITEMS = {
         "`$fable-mode`, or the user saying \"fable mode\".",
     ]),
     "humanizer": ("skill", []),
+    "readme-style": ("skill", [
+        "The banner script and the template sit beside the skill file, in `~/.claude/skills/readme-style/` "
+        "(`%USERPROFILE%\\.claude\\skills\\readme-style\\` on Windows). The `gh api markdown` check needs "
+        "escalation, since it uses the network.",
+    ]),
     "consolidate-lessons": ("project", []),
     "discover": ("project", []),
     "extract-lessons": ("project", [COURSE_MCP]),

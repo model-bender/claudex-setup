@@ -1,23 +1,33 @@
-# claudex-setup
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/readme/banner_dark.svg">
+  <img src=".github/readme/banner_light.svg" alt="claudex-setup: Turn the agentic-coding creators you follow into a lessons library, then audit your projects against it." width="100%">
+</picture>
+
+[Quickstart](#quickstart-60-seconds) · [Learn from creators](#learn-from-the-creators-you-pick) · [Commands](#everything-you-can-run) · [Customising](#customising-for-your-stack) · [Contributing](#contributing-layout--versioning)
 
 [![validate](https://github.com/model-bender/claudex-setup/actions/workflows/validate.yml/badge.svg)](https://github.com/model-bender/claudex-setup/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Turn the agentic-coding creators you follow into a lessons library your agent uses,
-then audit your real projects against it, across [Claude Code](https://claude.com/claude-code)
-and [Codex](https://developers.openai.com/codex/).**
+</div>
 
-![claudex-setup demo: /optimise proposing a source-cited change to approve](docs/demo.gif)
+Turn the agentic-coding creators you follow into a lessons library your agent uses,
+then audit your real projects against it, across [Claude Code](https://claude.com/claude-code)
+and [Codex](https://developers.openai.com/codex/).
 
 You watch the tutorials, read the threads, star the gists, and the best tips evaporate.
 `claudex-setup` is a config you run yourself: it mines those tips into **source-cited lessons
 from the creators *you* pick**, curates them, and audits your projects against them, alongside
 a battle-tested set of slash commands, subagents, and hooks.
 
+![claudex-setup demo: /optimise proposing a source-cited change to approve](docs/demo.gif)
+
 Keep it as a **standalone repo alongside your projects**: you run it *from* here, and
 `/optimise` improves your other projects' agent setups in place. You don't install it into each
 repo.
 
+> [!NOTE]
 > **Why "claudex"?** **Claude** Code + Co**dex**. `/optimise` audits whichever agent tools a
 > project uses: Claude Code by default, Claude Design with `--design`, OpenAI Codex
 > with `--codex`, keeping one tracker per tool. Working in this repo with Codex? Start at
@@ -48,6 +58,13 @@ The full walkthrough is in [`USER_GUIDE.md`](USER_GUIDE.md). Prefer the commands
 
 ## Learn from the creators you pick
 
+```mermaid
+flowchart LR
+    S(["videos and posts from<br/>the creators you pick"]) -->|"/extract-lessons<br/>/extract-social-lessons"| L["source-cited lessons<br/>one file per lesson"]
+    L -->|"/consolidate-lessons"| L
+    L -->|"/optimise"| P["your project's setup<br/>with the fixes you approve"]
+```
+
 Most configs "improve themselves" from your own sessions. This one learns from the
 practitioners you trust:
 
@@ -64,7 +81,9 @@ practitioners you trust:
 > linked to the post it came from. Browse [`lessons/INDEX.md`](lessons/INDEX.md) to see over
 > 1,200 already mined.
 
-### About YouTube transcripts
+<details>
+<summary><b>About YouTube transcripts</b></summary>
+<br>
 
 YouTube has no official way to download captions for videos you don't own: its API's caption
 download [requires permission to edit the video](https://developers.google.com/youtube/v3/docs/captions/download).
@@ -86,6 +105,8 @@ the text into a `.txt` file under `transcripts/<creator>/`. Put
 `# URL: https://www.youtube.com/watch?v=<id>` on its first line, so lessons can cite it and the
 fetcher knows it's already done. Then run `/extract-lessons`.
 
+</details>
+
 ## Everything you can run
 
 | Run… | …to |
@@ -105,13 +126,18 @@ fetcher knows it's already done. Then run `/extract-lessons`.
 | `/test [suite]` | run the project's tests / lint / build |
 | `/pr`, `/ticket` | GitHub PR + Jira ticket flow [†](#pr-ticket-note) |
 | `/fact-check` | verify claims in content against real sources |
+| `/quiz-me` | review an agent-written change by being examined on it: it quizzes you on the diff, diagrams what moved, and turns the questions you cannot answer into the review findings |
+| `/revise-claude-md` | update `CLAUDE.md` with learnings from this session |
+| `/ralph-loop <prompt>` | start a Ralph Loop, an iterative self-referential development loop |
+| `/cancel-ralph` | cancel an active Ralph Loop |
+| `/ralph-help` | explain the Ralph Loop and its commands |
 
 <a id="pr-ticket-note"></a>† `/pr` needs the `gh` CLI, and `/ticket` needs the Jira MCP server (see [`.mcp.json.example`](.mcp.json.example)). Neither is **bundled in the plugin**, but both are available when you run the repo as a hub with those tools set up.
 
 Plus subagents (`code-reviewer`, `qa`, `backend-dev`, `frontend-dev`, `code-simplifier`,
-`pr-test-analyzer`, read-only roles tool-restricted), lifecycle hooks (an advisory security
-reminder, a portable auto-formatter, GSD statusline/context-monitor), and skills
-(`claude-md-improver`, `frontend-design`).
+`pr-test-analyzer`, `qa` restricted to Read, Bash, Glob and Grep), lifecycle hooks (an advisory security
+reminder, a guard that blocks destructive git pushes, a portable auto-formatter, GSD statusline/context-monitor/update-check), and skills
+(`claude-md-improver`, `frontend-design`, `session-handoff`).
 
 ## Customising for your stack
 
@@ -136,3 +162,16 @@ If you do want the config *in* a specific repo (via the plugin, or by copying it
 Contributions welcome, see [`CONTRIBUTING.md`](CONTRIBUTING.md). Directory tree:
 [`references/project-structure.md`](references/project-structure.md). Changes are logged in
 [`CHANGELOG.md`](CHANGELOG.md); releases are tagged `vX.Y.Z`.
+
+Among its other checks, the `validate` workflow runs these on every push to `main` and every pull request:
+
+```bash
+python3 scripts/validate-artifacts.py     # agent, skill and command frontmatter and the plugin manifests
+uv run --with pytest pytest -q tests/     # pipeline unit tests
+```
+
+---
+
+<div align="center">
+<sub><a href="LICENSE">MIT licensed</a> · sibling of <a href="https://github.com/model-bender/claudex-learn">claudex-learn</a></sub>
+</div>

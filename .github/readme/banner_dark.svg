@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 240" width="1280" height="240" role="img" aria-label="claudex-setup: Turn the agentic-coding creators you follow into a lessons library, then audit your projects against it.">
+<title>claudex-setup: Turn the agentic-coding creators you follow into a lessons library, then audit your projects against it.</title>
+<defs>
+<pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="1.7" fill="#4b5565"/></pattern>
+<linearGradient id="fade" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0.9"/></linearGradient>
+<mask id="right"><rect x="640" y="0" width="640" height="240" fill="url(#fade)"/></mask>
+<clipPath id="card"><rect x="1" y="1" width="1278" height="238" rx="14"/></clipPath>
+</defs>
+<rect x="1" y="1" width="1278" height="238" rx="14" fill="#10141c" stroke="#2b3240" stroke-width="2"/>
+<g clip-path="url(#card)"><rect x="640" y="0" width="640" height="240" fill="url(#dots)" mask="url(#right)"/></g>
+<polyline points="64,66.4 82.0,86.2 64,106" fill="none" stroke="#22d3ee" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="104.8" y="106" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="60" font-weight="700" fill="#e6e6e4">claudex-setup<tspan dx="7.2" font-weight="400" fill="#22d3ee">&#9608;</tspan></text>
+<text x="64" y="158" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="26" fill="#8b93a1">Turn the agentic-coding creators you follow into a lessons library, then</text><text x="64" y="192" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="26" fill="#8b93a1">audit your projects against it.</text>
+<text x="1216" y="62" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" fill="#8b93a1">agentic coding · python</text>
+</svg>
