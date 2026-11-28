@@ -159,7 +159,7 @@ copy the keepers into `CLAUDE.md` yourself, that judgement step shouldn't be on 
 
 ## Subagents & agent teams
 
-Subagents live in `agents/`. Read-only roles (`qa`, `code-reviewer`) are restricted to
+Subagents live in `agents/`. Read-only roles (`qa`, `code-reviewer`, `pr-test-analyzer`) are restricted to
 `Read/Bash/Glob/Grep` so they can't modify code. For multi-ticket or full-stack work, your
 main session acts as the **team-lead**, the coordinator role that creates tickets and
 branches, reviews diffs, and merges, while spawning the dev/QA subagents (`backend-dev`,

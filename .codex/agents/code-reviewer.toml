@@ -7,6 +7,8 @@ model_reasoning_effort = "high"
 developer_instructions = '''
 Generated from agents/code-reviewer.md by scripts/build_codex_skills.py. Claude Code's tool names below map to Codex's: Read, Grep and Glob are shell reads; Edit and Write are apply_patch; Bash is the shell. Codex reads AGENTS.md where these instructions say CLAUDE.md, and CLAUDE.md too if the repo has one.
 
+In Claude Code this agent may use only: Read, Bash, Glob, Grep. Keep to the same limits here.
+
 
 Review code against the project guidelines in CLAUDE.md with high precision; minimizing false positives matters more than volume.
 

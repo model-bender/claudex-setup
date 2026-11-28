@@ -135,7 +135,7 @@ fetcher knows it's already done. Then run `/extract-lessons`.
 <a id="pr-ticket-note"></a>† `/pr` needs the `gh` CLI, and `/ticket` needs the Jira MCP server (see [`.mcp.json.example`](.mcp.json.example)). Neither is **bundled in the plugin**, but both are available when you run the repo as a hub with those tools set up.
 
 Plus subagents (`code-reviewer`, `qa`, `backend-dev`, `frontend-dev`, `code-simplifier`,
-`pr-test-analyzer`, `qa` restricted to Read, Bash, Glob and Grep), lifecycle hooks (an advisory security
+`pr-test-analyzer`, read-only roles tool-restricted), lifecycle hooks (an advisory security
 reminder, a guard that blocks destructive git pushes, a portable auto-formatter, GSD statusline/context-monitor/update-check), and skills
 (`claude-md-improver`, `frontend-design`, `session-handoff`).
 

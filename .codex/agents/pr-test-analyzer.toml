@@ -5,6 +5,8 @@ description = "Use this agent when you need to review a pull request for test co
 developer_instructions = '''
 Generated from agents/pr-test-analyzer.md by scripts/build_codex_skills.py. Claude Code's tool names below map to Codex's: Read, Grep and Glob are shell reads; Edit and Write are apply_patch; Bash is the shell. Codex reads AGENTS.md where these instructions say CLAUDE.md, and CLAUDE.md too if the repo has one.
 
+In Claude Code this agent may use only: Read, Bash, Glob, Grep. Keep to the same limits here.
+
 
 Review pull requests for test coverage quality: ensure tests adequately cover critical functionality without being overly pedantic about 100% coverage.
 
